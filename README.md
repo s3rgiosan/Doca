@@ -31,7 +31,7 @@ Export your workspaces from time to time. The export file is your only backup.
 
 ## Requirements
 
-- Node 22 or later
+- Node 22.12 or later
 - Google Chrome or Brave
 
 ## Build
@@ -56,3 +56,7 @@ Export your workspaces from time to time. The export file is your only backup.
 Run the unit tests with `npm test`. Record the manual checks in `docs/local-release-checks.md`.
 
 To make a zip file for the browser store, run `npx wxt zip`.
+
+## License
+
+Doca is released under the [MIT License](LICENSE).

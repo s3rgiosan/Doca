@@ -1,6 +1,7 @@
 {
   "name": "doca",
   "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "Workspaces that dock in their own window.",
@@ -9,6 +10,9 @@
     "build": "wxt build",
     "test": "vitest run --passWithNoTests",
     "postinstall": "wxt prepare"
+  },
+  "engines": {
+    "node": ">=22.12"
   },
   "devDependencies": {
     "typescript": "6.0.3",
