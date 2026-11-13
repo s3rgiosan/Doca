@@ -1,0 +1,22 @@
+{
+  "name": "doca",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Workspaces that dock in their own window.",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "test": "vitest run --passWithNoTests",
+    "postinstall": "wxt prepare"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "4.1.12",
+    "wxt": "0.21.5"
+  },
+  "dependencies": {
+    "lucide-preact": "1.64.0",
+    "preact": "10.29.8"
+  }
+}

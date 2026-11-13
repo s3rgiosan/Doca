@@ -1,0 +1,55 @@
+import type { BrowserPort } from '../browser/port';
+import { captureTabs, sameTabs, type CaptureResult } from '../model/capture';
+import { takeDue } from '../store/dirty';
+import { getBindings, getNotOpened, getTabMap, isRestoring, isStartupDone, setTabIds, windowForWorkspace } from '../store/session';
+import { updateWorkspace } from '../store/workspaces';
+
+/**
+ * Saves the tabs of a bound window into its workspace. It does nothing before startup binding is
+ * done, while the workspace is being restored, or when the tabs did not change. Saved tabs that could
+ * not open stay at the end of the list.
+ */
+export async function saveWindow(port: BrowserPort, windowId: number, now: number): Promise<void> {
+  const startupDone = await isStartupDone();
+  if (!startupDone) {
+    return;
+  }
+  const wsId = (await getBindings()).get(windowId);
+  if (wsId === undefined || (await isRestoring(wsId, now))) {
+    return;
+  }
+  const win = await port.getWindow(windowId);
+  if (!win) {
+    return;
+  }
+  const tabMap = await getTabMap();
+  const notOpened = await getNotOpened(wsId);
+  let captured: CaptureResult | null = null;
+  await updateWorkspace(
+    wsId,
+    (ws) => {
+      if (ws.deleted) {
+        return null;
+      }
+      captured = captureTabs(win.tabs, ws.tabs, tabMap, port.managerBase, () => crypto.randomUUID());
+      const liveIds = new Set(captured.tabs.map((tab) => tab.id));
+      const kept = ws.tabs.filter((tab) => notOpened.has(tab.id) && !liveIds.has(tab.id));
+      const tabs = [...captured.tabs, ...kept].map((tab, index) => ({ ...tab, index }));
+      return sameTabs(tabs, ws.tabs) ? null : { ...ws, tabs };
+    },
+    now,
+  );
+  if (captured) {
+    await setTabIds((captured as CaptureResult).tabIds);
+  }
+}
+
+/** Saves every workspace whose debounced save is due. */
+export async function flushDue(port: BrowserPort, now: number): Promise<void> {
+  for (const wsId of await takeDue(now)) {
+    const windowId = await windowForWorkspace(wsId);
+    if (windowId !== null) {
+      await saveWindow(port, windowId, now);
+    }
+  }
+}

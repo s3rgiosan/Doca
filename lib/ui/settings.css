@@ -1,0 +1,123 @@
+.settings {
+  display: flex;
+  gap: 24px;
+  height: 100%;
+  min-height: 0;
+}
+
+.settings-nav {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 20px;
+  border-right: 1px solid var(--border);
+}
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-align: left;
+  font-weight: 500;
+}
+
+.settings-nav-item:hover {
+  background: var(--secondary-bg);
+}
+
+.settings-nav-item.selected {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 4px 6px;
+}
+
+.settings section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings h2,
+.settings h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.settings label {
+  display: block;
+}
+
+.settings .row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.settings .file {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--secondary-bg);
+  padding: 6px 16px;
+  min-height: 36px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.settings .file:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.settings .file.disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.settings .muted {
+  color: var(--muted);
+  margin: 0;
+}
+
+.settings .primary {
+  align-self: flex-start;
+}
+
+.settings [role='status'] p,
+.settings [role='alert'] p {
+  margin: 12px 0 0;
+}
+
+@media (max-width: 640px) {
+  .settings {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settings-nav {
+    width: auto;
+    flex-direction: row;
+    padding: 0 0 12px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .settings-nav-item {
+    white-space: nowrap;
+  }
+}

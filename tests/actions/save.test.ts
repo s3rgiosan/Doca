@@ -1,0 +1,75 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { fakeBrowser } from 'wxt/testing/fake-browser';
+import { flushDue, saveWindow } from '@/lib/actions/save';
+import { managerUrl } from '@/lib/model/manager-url';
+import { newWorkspace } from '@/lib/model/workspace';
+import { markDirty } from '@/lib/store/dirty';
+import { bindWindow, markStartupDone, setRestoring } from '@/lib/store/session';
+import { getWorkspace, putWorkspace } from '@/lib/store/workspaces';
+import { createFakePort, FAKE_MANAGER_BASE as base } from '../helpers/fake-port';
+
+async function boundWindow() {
+  await putWorkspace(newWorkspace({ id: 'a', name: 'A', deviceId: 'd', now: 0 }), 1);
+  const port = createFakePort();
+  const win = await port.createWindow(managerUrl(base, 'a'));
+  await port.createTab({ windowId: win.id, url: 'https://x.test/', active: false });
+  await bindWindow(win.id, 'a');
+  return { port, windowId: win.id };
+}
+
+describe('saveWindow', () => {
+  beforeEach(() => {
+    fakeBrowser.reset();
+  });
+
+  it('saves nothing before startup binding is done', async () => {
+    const { port, windowId } = await boundWindow();
+    await saveWindow(port, windowId, 5);
+    expect((await getWorkspace('a'))!.tabs).toEqual([]);
+  });
+
+  it('writes only when the tabs changed', async () => {
+    const { port, windowId } = await boundWindow();
+    await markStartupDone();
+    await saveWindow(port, windowId, 5);
+    const first = (await getWorkspace('a'))!;
+    expect(first.tabs.map((t) => t.url)).toEqual(['https://x.test/']);
+    await saveWindow(port, windowId, 6);
+    expect((await getWorkspace('a'))!.rev).toBe(first.rev);
+    await port.createTab({ windowId, url: 'https://y.test/', active: false });
+    await saveWindow(port, windowId, 7);
+    expect((await getWorkspace('a'))!.rev).toBe(first.rev + 1);
+  });
+});
+
+describe('saveWindow during a restore', () => {
+  beforeEach(() => {
+    fakeBrowser.reset();
+  });
+
+  it('saves nothing until the restore guard ends or expires', async () => {
+    const { port, windowId } = await boundWindow();
+    await markStartupDone();
+    await setRestoring('a', 0);
+    await saveWindow(port, windowId, 1000);
+    expect((await getWorkspace('a'))!.tabs).toEqual([]);
+    await saveWindow(port, windowId, 60_000);
+    expect((await getWorkspace('a'))!.tabs).toHaveLength(1);
+  });
+});
+
+describe('flushDue', () => {
+  beforeEach(() => {
+    fakeBrowser.reset();
+  });
+
+  it('saves the bound window of each due workspace', async () => {
+    const { port } = await boundWindow();
+    await markStartupDone();
+    await markDirty('a', 0);
+    await flushDue(port, 500);
+    expect((await getWorkspace('a'))!.tabs).toEqual([]);
+    await flushDue(port, 1000);
+    expect((await getWorkspace('a'))!.tabs).toHaveLength(1);
+  });
+});
