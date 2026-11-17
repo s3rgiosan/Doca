@@ -75,7 +75,8 @@ export async function onTabAttached(port: BrowserPort, tabId: number, newWindowI
 
 /**
  * Closing a window keeps the workspace and its saved list. The startup overlap fallback then skips
- * the workspace, so a later window with some of the same URLs does not take it over.
+ * the workspace, so a later window with some of the same URLs does not take it over. The window is
+ * gone when this runs, so a tab change that is still in the save debounce is not saved.
  */
 export async function onWindowRemoved(windowId: number): Promise<void> {
   const wsId = (await getBindings()).get(windowId);
