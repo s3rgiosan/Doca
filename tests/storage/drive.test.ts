@@ -126,6 +126,25 @@ describe('DriveAdapter.putIfRev', () => {
   });
 });
 
+describe('DriveAdapter remote document validation', () => {
+  it.each([
+    ['a missing rev', { id: 'w1' }],
+    ['a string rev', { id: 'w1', rev: '3' }],
+    ['a null rev', { id: 'w1', rev: null }],
+    ['a null body', null],
+    ['an array', [1]],
+  ])('throws DriveError for %s', async (_label, body) => {
+    const { drive } = adapter(found('f1', 'w1.json'), { status: 200, body });
+    await expect(drive.get('w1.json')).rejects.toBeInstanceOf(DriveError);
+  });
+
+  it('does not write over an invalid remote document', async () => {
+    const { drive, fetchFn } = adapter(found('f1', 'w1.json'), { status: 200, body: { id: 'w1' } });
+    await expect(drive.putIfRev('w1.json', { id: 'w1', rev: 1 }, null)).rejects.toBeInstanceOf(DriveError);
+    expect(fetchFn.calls).toHaveLength(2);
+  });
+});
+
 describe('DriveAdapter.delete', () => {
   it('deletes the file by ID', async () => {
     const { drive, fetchFn } = adapter(found('f1', 'w1.json'), { status: 204, body: '' });

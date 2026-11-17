@@ -1,6 +1,6 @@
 import type { BrowserPort } from '../browser/port';
 import { captureTabs, sameTabs, type CaptureResult } from '../model/capture';
-import { takeDue } from '../store/dirty';
+import { markDirty, takeDue } from '../store/dirty';
 import { getBindings, getNotOpened, getTabMap, isRestoring, isStartupDone, setTabIds, windowForWorkspace } from '../store/session';
 import { updateWorkspace } from '../store/workspaces';
 
@@ -44,12 +44,20 @@ export async function saveWindow(port: BrowserPort, windowId: number, now: numbe
   }
 }
 
-/** Saves every workspace whose debounced save is due. */
+/**
+ * Saves every workspace whose debounced save is due. A workspace whose save fails is logged and
+ * marked due again, and the other workspaces still save.
+ */
 export async function flushDue(port: BrowserPort, now: number): Promise<void> {
   for (const wsId of await takeDue(now)) {
-    const windowId = await windowForWorkspace(wsId);
-    if (windowId !== null) {
-      await saveWindow(port, windowId, now);
+    try {
+      const windowId = await windowForWorkspace(wsId);
+      if (windowId !== null) {
+        await saveWindow(port, windowId, now);
+      }
+    } catch (error) {
+      console.warn(`Doca could not save workspace ${wsId}`, error);
+      await markDirty(wsId, now);
     }
   }
 }

@@ -133,10 +133,6 @@ export function createFakePort(
         reindex(win);
       }
     },
-    async activateTab(tabId) {
-      const { win, tab } = findTab(tabId);
-      setActive(win, tab);
-    },
     async pinTab(tabId) {
       findTab(tabId).tab.pinned = true;
     },

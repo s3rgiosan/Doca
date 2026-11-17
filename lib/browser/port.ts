@@ -52,7 +52,6 @@ export interface BrowserPort {
   /** An index of -1 puts the tabs at the end of the window. */
   moveTabs(tabIds: number[], windowId: number, index: number): Promise<void>;
   removeTabs(tabIds: number[]): Promise<void>;
-  activateTab(tabId: number): Promise<void>;
   pinTab(tabId: number): Promise<void>;
 }
 
@@ -117,9 +116,6 @@ export function createChromePort(): BrowserPort {
     },
     async removeTabs(tabIds) {
       await browser.tabs.remove(tabIds);
-    },
-    async activateTab(tabId) {
-      await browser.tabs.update(tabId, { active: true });
     },
     async pinTab(tabId) {
       await browser.tabs.update(tabId, { pinned: true });

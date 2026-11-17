@@ -10,8 +10,10 @@ import {
   bindWindow,
   forgetTabIds,
   getBindings,
+  getTabMap,
   isStartupDone,
   markStartupDone,
+  setTabIds,
   unbindWindow,
   windowForWorkspace,
 } from '../store/session';
@@ -148,7 +150,15 @@ export async function runSuspend(port: BrowserPort, now: number): Promise<void> 
   const ids = pickTabsToDiscard(tabs, { now, managerBase: port.managerBase, settings: await getSettings() });
   for (const id of ids) {
     try {
-      await port.discardTab(id);
+      const discarded = await port.discardTab(id);
+      // The discard can give the tab a new ID, so the saved tab ID moves to it.
+      if (discarded && discarded.id !== id) {
+        const savedId = (await getTabMap()).get(id);
+        if (savedId !== undefined) {
+          await setTabIds([[discarded.id, savedId]]);
+        }
+        await forgetTabIds([id]);
+      }
     } catch (error) {
       console.warn(`Doca could not suspend tab ${id}`, error);
     }

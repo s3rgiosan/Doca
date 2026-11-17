@@ -57,6 +57,44 @@ describe('sign-in', () => {
     });
   });
 
+  it.each(['interaction_required', 'login_required', 'consent_required', 'account_selection_required'])(
+    'signInSilently maps the redirect error %s to needs_interaction',
+    async (error) => {
+      const launch: LaunchFn = async () => `${cfg.redirectUri}?error=${error}`;
+      await expect(signInSilently(cfg, launch, fakeFetchOnce(500, ''), now)).rejects.toMatchObject({
+        code: 'needs_interaction',
+      });
+    },
+  );
+
+  it('signInSilently rethrows a state mismatch', async () => {
+    const launch: LaunchFn = async () => `${cfg.redirectUri}?state=other&code=c1`;
+    await expect(signInSilently(cfg, launch, fakeFetchOnce(500, ''), now)).rejects.toMatchObject({
+      code: 'state_mismatch',
+    });
+  });
+
+  it('signInSilently rethrows other redirect errors', async () => {
+    const launch: LaunchFn = async () => `${cfg.redirectUri}?error=access_denied`;
+    await expect(signInSilently(cfg, launch, fakeFetchOnce(500, ''), now)).rejects.toMatchObject({
+      code: 'access_denied',
+    });
+  });
+
+  it('signInSilently rethrows a network failure in the token exchange', async () => {
+    const fetchFn = (async () => {
+      throw new TypeError('network down');
+    }) as unknown as typeof fetch;
+    await expect(signInSilently(cfg, fakeLaunch([]), fetchFn, now)).rejects.toBeInstanceOf(TypeError);
+  });
+
+  it('signInSilently rethrows a bad token response', async () => {
+    const fetchFn = fakeFetchOnce(200, '<html>');
+    await expect(signInSilently(cfg, fakeLaunch([]), fetchFn, now)).rejects.toMatchObject({
+      code: 'invalid_token_response',
+    });
+  });
+
   it('signInSilently keeps the stored refresh token when the response has none', async () => {
     await saveTokens({ accessToken: 'a0', expiresAt: 0, refreshToken: 'r0', scope: 's' });
     const fetchFn = fakeFetchOnce(200, { access_token: 'a1', expires_in: 3600, scope: 's' });

@@ -51,12 +51,29 @@ export class DriveError extends Error {
   }
 }
 
+export type GitHubErrorKind = 'auth' | 'rate_limit' | 'other';
+
 export class GitHubError extends Error {
+  /**
+   * @param kind `auth` for HTTP 401, `rate_limit` for a primary or secondary rate limit.
+   * @param retryAfterSeconds Seconds to wait before a retry, when GitHub gave the time.
+   */
   constructor(
     public status: number,
     public body: string,
+    public kind: GitHubErrorKind = 'other',
+    public retryAfterSeconds: number | null = null,
   ) {
     super(`GitHub request failed with HTTP ${status}`);
     this.name = 'GitHubError';
   }
+}
+
+/** Checks that a parsed remote value is a document with a finite numeric `rev`. */
+export function isStoredDoc(value: unknown): value is StoredDoc {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const rev = (value as { rev?: unknown }).rev;
+  return typeof rev === 'number' && Number.isFinite(rev);
 }

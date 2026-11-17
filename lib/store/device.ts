@@ -8,6 +8,10 @@ export interface Settings {
   allowlist: string[];
 }
 
+const MAX_SUSPEND_MINUTES = 525_600;
+const MAX_ALLOWLIST_ENTRIES = 1000;
+const MAX_ALLOWLIST_ENTRY_LENGTH = 253;
+
 const DEFAULT_SETTINGS: Settings = { suspendAfterMinutes: 20, allowlist: [] };
 
 const deviceIdItem = storage.defineItem<string>('local:device.id');
@@ -30,8 +34,27 @@ export async function getSettings(): Promise<Settings> {
   return settingsItem.getValue();
 }
 
+/** Throws an Error when the value is not a valid `Settings`. Returns a copy that has only the known fields. */
+export function validateSettings(value: unknown): Settings {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('The settings are not an object.');
+  }
+  const { suspendAfterMinutes, allowlist } = value as Record<string, unknown>;
+  if (typeof suspendAfterMinutes !== 'number' || !Number.isInteger(suspendAfterMinutes) || suspendAfterMinutes < 0 || suspendAfterMinutes > MAX_SUSPEND_MINUTES) {
+    throw new Error(`The suspend time must be a whole number of minutes from 0 to ${MAX_SUSPEND_MINUTES}.`);
+  }
+  if (!Array.isArray(allowlist) || allowlist.length > MAX_ALLOWLIST_ENTRIES) {
+    throw new Error(`The allowlist must be a list of at most ${MAX_ALLOWLIST_ENTRIES} hosts.`);
+  }
+  if (!allowlist.every((entry) => typeof entry === 'string' && entry.length <= MAX_ALLOWLIST_ENTRY_LENGTH)) {
+    throw new Error(`Each allowlist entry must be text of at most ${MAX_ALLOWLIST_ENTRY_LENGTH} characters.`);
+  }
+  return { suspendAfterMinutes, allowlist: [...(allowlist as string[])] };
+}
+
 export function setSettings(settings: Settings): Promise<void> {
-  return serial(() => settingsItem.setValue(settings));
+  const valid = validateSettings(settings);
+  return serial(() => settingsItem.setValue(valid));
 }
 
 /** Workspaces that the startup overlap fallback must skip, because the user unbound their window. */

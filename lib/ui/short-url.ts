@@ -65,20 +65,38 @@ function punycodeDecode(input: string): string | undefined {
   }
 }
 
-/** Shows the Unicode form of the `xn--` labels of a host. */
-function unicodeHost(host: string): string {
-  return host
-    .split('.')
-    .map((label) => (label.startsWith('xn--') ? (punycodeDecode(label.slice(4)) ?? label) : label))
-    .join('.');
+/** True when the text mixes Latin letters with Cyrillic or Greek letters, as a look-alike host does. */
+function mixesScripts(text: string): boolean {
+  const latin = /\p{Script=Latin}/u.test(text);
+  const other = /[\p{Script=Cyrillic}\p{Script=Greek}]/u.test(text);
+  return latin && other;
 }
 
-function decodePath(path: string): string {
-  try {
-    return decodeURIComponent(path);
-  } catch {
-    return path;
+/** Decodes an `xn--` label. The label keeps its `xn--` form when it is invalid or mixes scripts. */
+function unicodeLabel(label: string): string {
+  if (!label.startsWith('xn--')) {
+    return label;
   }
+  const decoded = punycodeDecode(label.slice(4));
+  return decoded === undefined || mixesScripts(decoded) ? label : decoded;
+}
+
+/** Shows the Unicode form of the `xn--` labels of a host. */
+function unicodeHost(host: string): string {
+  return host.split('.').map(unicodeLabel).join('.');
+}
+
+/** Bidirectional controls and C0/C1 control characters. They can reorder or hide the text of a path. */
+const HIDDEN_CHARACTERS = /[\u0000-\u001F\u007F-\u009F\u200E\u200F\u202A-\u202E\u2066-\u2069]/g;
+
+function decodePath(path: string): string {
+  let decoded = path;
+  try {
+    decoded = decodeURIComponent(path);
+  } catch {
+    // An invalid escape keeps the path as it is.
+  }
+  return decoded.replace(HIDDEN_CHARACTERS, '');
 }
 
 /**
@@ -120,7 +138,8 @@ export function tabLabel(title: string, url: string): { title: string; showUrl: 
   const urlLike =
     text === '' || text === url || text === bare || text === short || (text.length >= short.length && bare.startsWith(text));
   if (urlLike) {
-    return { title: short === '' ? url : short, showUrl: false };
+    const fallback = short === '' ? url : short;
+    return { title: fallback === '' ? 'Untitled tab' : fallback, showUrl: false };
   }
   return { title, showUrl: true };
 }

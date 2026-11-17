@@ -7,7 +7,7 @@ import { newWorkspace } from '../model/workspace';
 import { getDeviceId } from '../store/device';
 import { openSavedTabs, suspendOpenedTabs } from './open';
 import { colorForNew, deleteWorkspace } from './window';
-import { getWorkspace, putWorkspace, updateWorkspace } from '../store/workspaces';
+import { getWorkspace, putWorkspace, removeWorkspace, updateWorkspace } from '../store/workspaces';
 
 /** What a move changed, so that `undoMove` can move the same tabs back. */
 export interface MoveUndo {
@@ -191,13 +191,17 @@ export async function moveTabsToNewWorkspace(
   const windows = await port.getWindows();
   const canMove = windows
     .flatMap((win) => win.tabs)
-    .some((tab) => wanted.has(tab.id) && parseManagerUrl(port.managerBase, tab.url) === null);
+    .some((tab) => wanted.has(tab.id) && parseManagerUrl(port.managerBase, tab.url) === null && tab.url !== '');
   if (!canMove) {
     throw new Error('No selected tab can move.');
   }
   const wsId = crypto.randomUUID();
   await putWorkspace(newWorkspace({ id: wsId, name, deviceId: await getDeviceId(), now, color: await colorForNew(undefined) }), now);
   const { moved, undo } = await moveTabsWithUndo(port, tabIds, wsId, now);
+  if (moved === 0) {
+    await removeWorkspace(wsId);
+    throw new Error('No selected tab can move.');
+  }
   return { wsId, moved, undo: undo && { ...undo, created: true } };
 }
 

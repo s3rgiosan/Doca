@@ -63,14 +63,6 @@ describe('fake port', () => {
     expect(await port.getWindow(win.id).then((w) => w!.tabs.map((t) => t.id))).toContain(after!.id);
   });
 
-  it('activates one tab per window', async () => {
-    const { port, windowId } = await windowWithTabs(['a', 'b']);
-    const tabs = (await port.getWindow(windowId))!.tabs;
-    await port.activateTab(tabs[1]!.id);
-    const after = (await port.getWindow(windowId))!.tabs;
-    expect(after.map((t) => t.active)).toEqual([false, true]);
-  });
-
   it('restores and focuses a minimized window', async () => {
     const { port, windowId } = await windowWithTabs(['a']);
     port.windows.find((w) => w.id === windowId)!.minimized = true;

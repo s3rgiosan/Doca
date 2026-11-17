@@ -94,3 +94,36 @@ describe('tabLabel', () => {
     expect(tabLabel('example', 'https://example.com/docs')).toEqual({ title: 'example', showUrl: true });
   });
 });
+
+describe('shortUrl look-alike hosts', () => {
+  // The Cyrillic letter U+0430 looks like the Latin "a".
+  const mixed = new URL('https://\u0430pple.example.com/').host;
+  const cyrillicOnly = new URL('https://\u043F\u0440\u0438\u043C\u0435\u0440.example.com/').host;
+
+  it('builds an xn-- host for the fixtures', () => {
+    expect(mixed.startsWith('xn--')).toBe(true);
+    expect(cyrillicOnly.startsWith('xn--')).toBe(true);
+  });
+
+  it('keeps the xn-- form of a label that mixes Latin and Cyrillic', () => {
+    expect(shortUrl(`https://${mixed}/`)).toBe(mixed);
+  });
+
+  it('decodes a label in a single script', () => {
+    expect(shortUrl(`https://${cyrillicOnly}/`)).toBe('\u043F\u0440\u0438\u043C\u0435\u0440.example.com');
+  });
+
+  it('strips bidi and control characters from a decoded path', () => {
+    expect(shortUrl('https://example.com/a%E2%80%AEb%E2%81%A6c%00d%0Ae%C2%85f')).toBe('example.com/abcdef');
+  });
+
+  it('strips them from the path of a browser page', () => {
+    expect(shortUrl('chrome://settings/a%E2%80%8Eb')).toBe('chrome://settings/ab');
+  });
+});
+
+describe('tabLabel placeholder', () => {
+  it('returns "Untitled tab" for an empty title and an empty URL', () => {
+    expect(tabLabel('', '')).toEqual({ title: 'Untitled tab', showUrl: false });
+  });
+});

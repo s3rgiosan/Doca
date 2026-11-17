@@ -101,6 +101,35 @@ describe('handleMessage', () => {
     expect(await getSettings()).toEqual(settings);
   });
 
+  it.each([
+    ['negative minutes', { suspendAfterMinutes: -1, allowlist: [] }],
+    ['fractional minutes', { suspendAfterMinutes: 1.5, allowlist: [] }],
+    ['infinite minutes', { suspendAfterMinutes: Infinity, allowlist: [] }],
+    ['string minutes', { suspendAfterMinutes: '5', allowlist: [] }],
+    ['allowlist not an array', { suspendAfterMinutes: 5, allowlist: 'example.com' }],
+    ['allowlist with a number', { suspendAfterMinutes: 5, allowlist: [1] }],
+    ['missing allowlist', { suspendAfterMinutes: 5 }],
+    ['null', null],
+  ])('rejects settings with %s', async (_label, settings) => {
+    const reply = await handleMessage({ type: 'set-settings', settings } as unknown as Message, createFakePort(), now);
+    expect(reply.ok).toBe(false);
+    expect((await getSettings()).suspendAfterMinutes).toBe(20);
+  });
+
+  it('imports a workspace with the ID "index" under a new ID and keeps the list readable', async () => {
+    const text = JSON.stringify({
+      format: 'doca-export',
+      version: 1,
+      exportedAt: 1,
+      workspaces: [{ id: 'index', name: 'Work', tabs: [{ id: 't', url: 'https://example.com/' }] }],
+    });
+    const reply = await handleMessage({ type: 'import', text }, createFakePort(), now);
+    expect(reply).toEqual({ ok: true, value: 1 });
+    const list = await listWorkspaces();
+    expect(list.map((w) => w.name).sort()).toEqual(['A', 'Work']);
+    expect(list.every((w) => w.id !== 'index')).toBe(true);
+  });
+
   it('exports and imports as a copy when the ID exists', async () => {
     const exported = await handleMessage({ type: 'export' }, createFakePort(), now);
     expect(exported.ok).toBe(true);

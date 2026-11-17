@@ -114,4 +114,13 @@ describe('moveTabsToNewWorkspace', () => {
     await expect(moveTabsToNewWorkspace(port, [manager.id, 9999], 'Fresh', 2)).rejects.toThrow('No selected tab can move.');
     expect((await listWorkspaces()).map((ws) => ws.name)).toEqual(['Source']);
   });
+
+  it('creates nothing when every selected tab is still loading', async () => {
+    const port = createFakePort();
+    const source = await windowWith(port, ['https://a.test/']);
+    await createFromWindow(port, source, 'Source', 1);
+    const loading = await port.createTab({ windowId: source, url: '', active: false });
+    await expect(moveTabsToNewWorkspace(port, [loading.id], 'Fresh', 2)).rejects.toThrow('No selected tab can move.');
+    expect((await listWorkspaces()).map((ws) => ws.name)).toEqual(['Source']);
+  });
 });

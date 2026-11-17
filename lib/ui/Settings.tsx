@@ -60,7 +60,7 @@ export function Settings(props: Props) {
   };
 
   useEffect(() => {
-    void load();
+    load().catch(() => report(false, 'Doca could not load the settings.'));
   }, []);
 
   const dirty = stored !== null && hasUnsavedChanges({ globalMinutes, allowlist }, stored);
@@ -79,7 +79,11 @@ export function Settings(props: Props) {
       const reply = await sendMessage({ type: 'set-settings', settings: formValues({ globalMinutes, allowlist }) });
       report(reply.ok, reply.ok ? 'Settings saved.' : reply.error);
       if (reply.ok) {
-        await load();
+        try {
+          await load();
+        } catch {
+          report(false, 'Settings saved, but Doca could not reload them.');
+        }
       }
       return reply.ok;
     });
@@ -119,7 +123,11 @@ export function Settings(props: Props) {
       }
       const reply = await sendMessage({ type: 'import', text });
       report(reply.ok, reply.ok ? `Imported ${String(reply.value)} workspaces.` : reply.error);
-      await load(true);
+      try {
+        await load(true);
+      } catch {
+        report(false, 'Doca could not reload the settings.');
+      }
     });
 
   return (

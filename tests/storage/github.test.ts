@@ -231,3 +231,112 @@ describe('GitHubAdapter.changes', () => {
     expect(fetchFn.calls).toHaveLength(3);
   });
 });
+
+describe('GitHubAdapter errors', () => {
+  const fail = (response: FakeResponse) => adapter(response).github.get('w1.json').catch((e: unknown) => e);
+
+  it('marks HTTP 401 as an auth error', async () => {
+    const error = (await fail({ status: 401, body: 'bad' })) as GitHubError;
+    expect(error).toMatchObject({ status: 401, kind: 'auth', retryAfterSeconds: null });
+  });
+
+  it('marks a 429 with retry-after as a rate limit with the wait', async () => {
+    const error = (await fail({ status: 429, body: 'slow', headers: { 'Retry-After': '30' } })) as GitHubError;
+    expect(error).toMatchObject({ status: 429, kind: 'rate_limit', retryAfterSeconds: 30 });
+  });
+
+  it('marks a 403 with no remaining requests as a rate limit that waits for the reset', async () => {
+    const reset = Math.floor(Date.now() / 1000) + 120;
+    const error = (await fail({
+      status: 403,
+      body: 'limit',
+      headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(reset) },
+    })) as GitHubError;
+    expect(error.kind).toBe('rate_limit');
+    expect(error.retryAfterSeconds).toBeGreaterThan(110);
+    expect(error.retryAfterSeconds).toBeLessThanOrEqual(120);
+  });
+
+  it('marks a 429 with no headers as a rate limit with no wait', async () => {
+    const error = (await fail({ status: 429, body: 'slow' })) as GitHubError;
+    expect(error).toMatchObject({ kind: 'rate_limit', retryAfterSeconds: null });
+  });
+
+  it('keeps a plain 403 as another error', async () => {
+    const error = (await fail({ status: 403, body: 'forbidden', headers: { 'x-ratelimit-remaining': '10' } })) as GitHubError;
+    expect(error).toMatchObject({ status: 403, kind: 'other' });
+  });
+
+  it('lets a rate limit on the re-read after a 409 propagate', async () => {
+    const { github } = adapter(
+      fileAt('abc', { id: 'w1', rev: 3 }),
+      { status: 409, body: {} },
+      { status: 429, body: 'slow', headers: { 'retry-after': '5' } },
+    );
+    const error = await github.putIfRev('w1.json', { id: 'w1', rev: 4 }, 3).catch((e: unknown) => e);
+    expect(error).toMatchObject({ name: 'GitHubError', kind: 'rate_limit', retryAfterSeconds: 5 });
+  });
+
+  it('does not map a 422 to a conflict', async () => {
+    const { github } = adapter(missing, { status: 422, body: 'invalid' });
+    const error = await github.putIfRev('w1.json', { id: 'w1', rev: 1 }, null).catch((e: unknown) => e);
+    expect(error).toMatchObject({ name: 'GitHubError', status: 422 });
+  });
+});
+
+describe('GitHubAdapter response validation', () => {
+  const bad = (body: unknown) => adapter({ status: 200, body }).github.get('w1.json');
+  const good = encodeContent({ id: 'w1', rev: 1 });
+
+  it('rejects content that is not a string', async () => {
+    await expect(bad({ sha: 's', encoding: 'base64', content: null })).rejects.toBeInstanceOf(GitHubError);
+  });
+
+  it('rejects an encoding other than base64', async () => {
+    await expect(bad({ sha: 's', encoding: 'none', content: good })).rejects.toThrow('HTTP 200');
+  });
+
+  it('rejects a directory listing', async () => {
+    await expect(bad([{ type: 'file' }])).rejects.toBeInstanceOf(GitHubError);
+  });
+
+  it('rejects content that is not base64 JSON', async () => {
+    await expect(bad({ sha: 's', encoding: 'base64', content: '!!!' })).rejects.toBeInstanceOf(GitHubError);
+  });
+
+  it('rejects a document with no numeric rev', async () => {
+    const content = encodeContent({ id: 'w1', rev: 'x' } as never);
+    await expect(bad({ sha: 's', encoding: 'base64', content })).rejects.toBeInstanceOf(GitHubError);
+  });
+});
+
+describe('GitHubAdapter names', () => {
+  const make = (owner: string, repo: string) => () =>
+    new GitHubAdapter({ owner, repo }, async () => 't', fakeFetch());
+
+  it.each([
+    ['', 'r'],
+    ['-ana', 'r'],
+    ['an/a', 'r'],
+    ['..', 'r'],
+    ['a'.repeat(40), 'r'],
+    ['ana', '.'],
+    ['ana', '..'],
+    ['ana', ''],
+    ['ana', 'a/b'],
+    ['ana', 'a'.repeat(101)],
+  ])('rejects owner %j with repo %j', (owner, repo) => {
+    expect(make(owner, repo)).toThrow(/Invalid GitHub/);
+  });
+
+  it('accepts valid names', () => {
+    expect(make('ana-1', 'doca.sync_x-1')).not.toThrow();
+    expect(make('a'.repeat(39), '..x')).not.toThrow();
+  });
+
+  it.each(['.', '..', 'a/b', ''])('rejects the file name %j without a request', async (name) => {
+    const { github, fetchFn } = adapter();
+    await expect(github.get(name)).rejects.toThrow('Invalid file name');
+    expect(fetchFn.calls).toHaveLength(0);
+  });
+});

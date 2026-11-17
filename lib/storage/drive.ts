@@ -1,6 +1,7 @@
 import type { FetchFn } from '../auth/google-oauth';
 import {
   DriveError,
+  isStoredDoc,
   RevConflictError,
   type ChangeSet,
   type RemoteEntry,
@@ -123,7 +124,10 @@ export class DriveAdapter implements StorageAdapter {
     if (!file) {
       return null;
     }
-    const doc = (await this.requestJson(`${FILES_URL}/${file.id}?alt=media`)) as StoredDoc;
+    const doc = await this.requestJson(`${FILES_URL}/${file.id}?alt=media`);
+    if (!isStoredDoc(doc)) {
+      throw new DriveError(200, `Remote file ${name} is not a document with a numeric rev`);
+    }
     return { fileId: file.id, doc };
   }
 

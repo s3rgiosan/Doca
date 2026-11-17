@@ -1,6 +1,7 @@
 import type { FetchFn } from '../auth/google-oauth';
 import {
   GitHubError,
+  isStoredDoc,
   RevConflictError,
   type ChangeSet,
   type RemoteEntry,
@@ -11,6 +12,8 @@ import {
 const API = 'https://api.github.com';
 const API_VERSION = '2026-03-10';
 const FOLDER = 'doca';
+const OWNER_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
+const REPO_PATTERN = /^[A-Za-z0-9._-]{1,100}$/;
 
 export interface GitHubRepo {
   owner: string;
@@ -18,11 +21,6 @@ export interface GitHubRepo {
 }
 
 export type HeadResult = { notModified: true } | { notModified: false; sha: string | null; etag: string | null };
-
-interface ContentsFile {
-  sha: string;
-  content: string;
-}
 
 interface TreeResponse {
   truncated: boolean;
@@ -52,11 +50,19 @@ export function decodeContent(content: string): StoredDoc {
 export class GitHubAdapter implements StorageAdapter {
   private defaultBranch: string | undefined;
 
+  /** @throws Error when the owner or repository name is not a valid GitHub name. */
   constructor(
     private repo: GitHubRepo,
     private getToken: () => Promise<string>,
     private fetchFn: FetchFn,
-  ) {}
+  ) {
+    if (!OWNER_PATTERN.test(repo.owner)) {
+      throw new Error(`Invalid GitHub owner: ${repo.owner}`);
+    }
+    if (!REPO_PATTERN.test(repo.repo) || repo.repo === '.' || repo.repo === '..') {
+      throw new Error(`Invalid GitHub repository: ${repo.repo}`);
+    }
+  }
 
   async list(): Promise<RemoteEntry[]> {
     const head = await this.head(null);
@@ -85,7 +91,8 @@ export class GitHubAdapter implements StorageAdapter {
     try {
       await this.send(this.contentsUrl(name), { method: 'PUT', body: JSON.stringify(body) });
     } catch (error) {
-      // GitHub rejects a write with a stale sha, so another device wrote first.
+      // GitHub answers 409 Conflict for a write with a stale sha, so another device wrote first.
+      // An error from the re-read, such as a rate limit, propagates as itself.
       if (error instanceof GitHubError && error.status === 409) {
         const current = await this.read(name);
         throw new RevConflictError(current ? current.doc.rev : null);
@@ -185,8 +192,20 @@ export class GitHubAdapter implements StorageAdapter {
     if (response.status === 404) {
       return null;
     }
-    const file = (await response.json()) as ContentsFile;
-    return { sha: file.sha, doc: decodeContent(file.content) };
+    const file = (await response.json()) as { sha?: unknown; content?: unknown; encoding?: unknown } | null;
+    if (!file || typeof file.sha !== 'string' || typeof file.content !== 'string' || file.encoding !== 'base64') {
+      throw new GitHubError(200, `The contents response for ${name} has no base64 file content`);
+    }
+    let doc: unknown;
+    try {
+      doc = decodeContent(file.content);
+    } catch {
+      throw new GitHubError(200, `The file ${name} is not valid base64 JSON`);
+    }
+    if (!isStoredDoc(doc)) {
+      throw new GitHubError(200, `The file ${name} is not a document with a numeric rev`);
+    }
+    return { sha: file.sha, doc };
   }
 
   private repoUrl(): string {
@@ -194,6 +213,9 @@ export class GitHubAdapter implements StorageAdapter {
   }
 
   private contentsUrl(name: string): string {
+    if (name === '' || name === '.' || name === '..' || name.includes('/')) {
+      throw new Error(`Invalid file name: ${name}`);
+    }
     return `${this.repoUrl()}/contents/${FOLDER}/${encodeURIComponent(name)}`;
   }
 
@@ -209,8 +231,37 @@ export class GitHubAdapter implements StorageAdapter {
     headers.set('X-GitHub-Api-Version', API_VERSION);
     const response = await this.fetchFn(url, { ...init, headers, cache: 'no-store' });
     if (!response.ok && !allowed.includes(response.status)) {
-      throw new GitHubError(response.status, await response.text());
+      throw await this.errorFor(response);
     }
     return response;
+  }
+
+  /**
+   * Classifies a failed response. A 403 or 429 is a rate limit when `retry-after` is present
+   * or `x-ratelimit-remaining` is 0. The wait comes from `retry-after`, else from `x-ratelimit-reset`.
+   */
+  private async errorFor(response: Response): Promise<GitHubError> {
+    const body = await response.text();
+    const status = response.status;
+    if (status === 401) {
+      return new GitHubError(status, body, 'auth');
+    }
+    if (status !== 403 && status !== 429) {
+      return new GitHubError(status, body);
+    }
+    const retryAfter = response.headers.get('retry-after');
+    const exhausted = response.headers.get('x-ratelimit-remaining') === '0';
+    if (status === 403 && retryAfter === null && !exhausted) {
+      return new GitHubError(status, body);
+    }
+    let seconds: number | null = null;
+    const retrySeconds = retryAfter === null ? Number.NaN : Number(retryAfter);
+    const resetAt = Number(response.headers.get('x-ratelimit-reset'));
+    if (Number.isFinite(retrySeconds) && retrySeconds >= 0) {
+      seconds = retrySeconds;
+    } else if (exhausted && Number.isFinite(resetAt) && resetAt > 0) {
+      seconds = Math.max(0, Math.ceil(resetAt - Date.now() / 1000));
+    }
+    return new GitHubError(status, body, 'rate_limit', seconds);
   }
 }

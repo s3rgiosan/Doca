@@ -13,6 +13,7 @@ import {
   getTabMap,
   rememberDeleted,
   setNotOpened,
+  setRestoring,
   setTabIds,
   unbindWindow,
   windowForWorkspace,
@@ -79,7 +80,8 @@ export async function createEmptyWorkspace(
 
 /**
  * Binds a window to an existing workspace. The window keeps its tabs, and saved tabs that are not in
- * the window open in the background, discarded. Nothing is removed.
+ * the window open in the background, discarded. Nothing is removed. Saves of the workspace wait
+ * until all saved tabs are open.
  */
 export async function assignWindow(
   port: BrowserPort,
@@ -96,11 +98,15 @@ export async function assignWindow(
   if (openElsewhere) {
     return 'open-elsewhere';
   }
-  await bindWindow(windowId, wsId);
-  await setSkipFallback(wsId, false);
-  await ensureManagerTab(port, windowId, wsId);
-
-  await openMissingTabs(port, windowId, ws);
+  await setRestoring(wsId, now);
+  try {
+    await bindWindow(windowId, wsId);
+    await setSkipFallback(wsId, false);
+    await ensureManagerTab(port, windowId, wsId);
+    await openMissingTabs(port, windowId, ws);
+  } finally {
+    await setRestoring(wsId, null);
+  }
   await saveWindow(port, windowId, now);
   return 'assigned';
 }

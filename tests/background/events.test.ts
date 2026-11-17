@@ -7,7 +7,7 @@ import { onManagerTabSeen, onTabAttached, onTabChanged, onTabRemoved, onWindowRe
 import { managerUrl, parseManagerUrl } from '@/lib/model/manager-url';
 import { newWorkspace } from '@/lib/model/workspace';
 import { nextDue } from '@/lib/store/dirty';
-import { bindWindow, getBindings, isStartupDone, markStartupDone } from '@/lib/store/session';
+import { bindWindow, getBindings, getTabMap, isStartupDone, markStartupDone, setTabIds } from '@/lib/store/session';
 import { getWorkspace, putWorkspace } from '@/lib/store/workspaces';
 import { createFakePort, FAKE_MANAGER_BASE as base, type FakePort } from '../helpers/fake-port';
 
@@ -218,6 +218,19 @@ describe('runSuspend', () => {
     await runSuspend(port, 60 * 60_000);
     expect((await tabsIn(port, bound)).map((t) => t.discarded)).toEqual([false, true]);
     expect((await tabsIn(port, free)).map((t) => t.discarded)).toEqual([false, true]);
+  });
+
+  it('moves the saved tab ID to the new ID that a discard gives', async () => {
+    const port = createFakePort({ discardChangesId: true });
+    const windowId = await windowWith(port, ['https://a.test/', 'https://b.test/']);
+    const [, idle] = await tabsIn(port, windowId);
+    await setTabIds([[idle!.id, 's1']]);
+    await runSuspend(port, 60 * 60_000);
+    const after = (await tabsIn(port, windowId))[1]!;
+    expect(after.id).not.toBe(idle!.id);
+    const map = await getTabMap();
+    expect(map.get(after.id)).toBe('s1');
+    expect(map.has(idle!.id)).toBe(false);
   });
 });
 

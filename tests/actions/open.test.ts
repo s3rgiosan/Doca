@@ -4,7 +4,8 @@ import { ensureManagerTab, openWorkspace, switchToWorkspace } from '@/lib/action
 import { managerUrl, parseManagerUrl } from '@/lib/model/manager-url';
 import { newWorkspace, type SavedTab } from '@/lib/model/workspace';
 import { getSkipFallback, setSkipFallback } from '@/lib/store/device';
-import { bindWindow, getTabMap, windowForWorkspace } from '@/lib/store/session';
+import { nextDue } from '@/lib/store/dirty';
+import { bindWindow, getTabMap, isRestoring, windowForWorkspace } from '@/lib/store/session';
 import { putWorkspace } from '@/lib/store/workspaces';
 import { createFakePort, FAKE_MANAGER_BASE as base } from '../helpers/fake-port';
 
@@ -44,6 +45,26 @@ describe('openWorkspace', () => {
     const tabs = (await port.getWindow(windowId))!.tabs.slice(1);
     const map = await getTabMap();
     expect(tabs.map((t) => map.get(t.id))).toEqual(['s0', 's1', 's2']);
+  });
+
+  it('clears the restore flag and schedules a save when the open fails', async () => {
+    await seed(2);
+    const port = createFakePort();
+    port.pinTab = async () => {
+      throw new Error('no pin');
+    };
+    await expect(openWorkspace(port, 'a')).rejects.toThrow('no pin');
+    expect(await isRestoring('a', Date.now())).toBe(false);
+    expect(await nextDue()).not.toBeNull();
+  });
+
+  it('throws a clear error when the new window has no tab', async () => {
+    await seed(2);
+    const port = createFakePort();
+    const createWindow = port.createWindow.bind(port);
+    port.createWindow = async (url) => ({ ...(await createWindow(url)), tabs: [] });
+    await expect(openWorkspace(port, 'a')).rejects.toThrow('no manager tab');
+    expect(await isRestoring('a', Date.now())).toBe(false);
   });
 
   it('keeps opening tabs after one fails', async () => {

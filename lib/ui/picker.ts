@@ -50,6 +50,28 @@ export function firstPickable(rows: PickerRow[], query: string): number {
   return match === -1 ? 0 : match;
 }
 
+/**
+ * Returns the highlight after the rows or the query changed. A new query starts at `firstPickable`.
+ * A refresh of the rows keeps the highlighted row when it is still there and can be picked.
+ */
+export function nextHighlight(
+  before: { rows: PickerRow[]; query: string },
+  after: { rows: PickerRow[]; query: string },
+  highlight: number,
+): number {
+  const old = before.rows[highlight];
+  if (before.query === after.query && old !== undefined) {
+    const kept = after.rows.findIndex((row) => {
+      const same = row.kind === 'new' ? old.kind === 'new' : old.kind === 'workspace' && old.ws.id === row.ws.id;
+      return same && isPickable(row);
+    });
+    if (kept !== -1) {
+      return kept;
+    }
+  }
+  return firstPickable(after.rows, after.query);
+}
+
 /** The element id of an option in the list with the given id. */
 export function optionId(listId: string, index: number): string {
   return `${listId}-option-${index}`;

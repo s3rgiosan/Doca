@@ -78,3 +78,34 @@ describe('refreshAccessToken', () => {
     expect(t.refreshToken).toBe('r2');
   });
 });
+
+describe('token response validation', () => {
+  const ok = { access_token: 'a1', expires_in: 3600, scope: 's' };
+
+  it.each([
+    ['an empty access_token', { ...ok, access_token: '' }],
+    ['a missing access_token', { expires_in: 3600, scope: 's' }],
+    ['a string expires_in', { ...ok, expires_in: '3600' }],
+    ['a zero expires_in', { ...ok, expires_in: 0 }],
+    ['a negative expires_in', { ...ok, expires_in: -5 }],
+    ['a numeric refresh_token', { ...ok, refresh_token: 5 }],
+    ['a null body', null],
+  ])('exchangeCode throws OAuthError for %s', async (_label, body) => {
+    await expect(exchangeCode(cfg, 'c1', 'v1', fakeFetchOnce(200, body), now)).rejects.toMatchObject({
+      name: 'OAuthError',
+      code: 'invalid_token_response',
+    });
+  });
+
+  it('throws OAuthError for a body that is not JSON', async () => {
+    await expect(exchangeCode(cfg, 'c1', 'v1', fakeFetchOnce(200, '<html>'), now)).rejects.toMatchObject({
+      code: 'invalid_token_response',
+    });
+  });
+
+  it('refreshAccessToken validates the response too', async () => {
+    await expect(refreshAccessToken(cfg, 'r1', fakeFetchOnce(200, { ...ok, expires_in: 0 }), now)).rejects.toMatchObject({
+      code: 'invalid_token_response',
+    });
+  });
+});

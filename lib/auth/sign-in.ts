@@ -27,10 +27,19 @@ export async function signIn(
   return tokens;
 }
 
+/** OAuth error codes that mean the user must act. The others are real failures. */
+const INTERACTION_CODES = new Set([
+  'needs_interaction',
+  'interaction_required',
+  'login_required',
+  'consent_required',
+  'account_selection_required',
+]);
+
 /**
  * Signs in with no user interface (`prompt=none`) and saves the tokens.
  *
- * @throws OAuthError `needs_interaction` when Google needs the user.
+ * @throws OAuthError `needs_interaction` when the user must act. Other errors propagate unchanged.
  */
 export async function signInSilently(
   cfg: OAuthClientConfig,
@@ -42,8 +51,10 @@ export async function signInSilently(
   try {
     tokens = await runCodeFlow(cfg, launch, fetchFn, now, 'none', false);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new OAuthError('needs_interaction', message);
+    if (error instanceof OAuthError && INTERACTION_CODES.has(error.code)) {
+      throw new OAuthError('needs_interaction', error.message);
+    }
+    throw error;
   }
   if (!tokens.refreshToken) {
     const stored = await loadTokens();
@@ -66,7 +77,16 @@ async function runCodeFlow(
   const verifier = createVerifier();
   const challenge = await challengeFromVerifier(verifier);
   const state = createVerifier();
-  const redirect = await launch(buildAuthUrl(cfg, { challenge, state, prompt }), interactive);
+  let redirect: string;
+  try {
+    redirect = await launch(buildAuthUrl(cfg, { challenge, state, prompt }), interactive);
+  } catch (error) {
+    // A non-interactive launch fails when the flow needs a page the user must see.
+    if (!interactive) {
+      throw new OAuthError('needs_interaction', error instanceof Error ? error.message : String(error));
+    }
+    throw error;
+  }
   const code = parseRedirect(redirect, state);
   return exchangeCode(cfg, code, verifier, fetchFn, now);
 }

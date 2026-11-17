@@ -7,7 +7,7 @@ import { sendMessage, type Message, type Reply } from '@/lib/messages';
 import { getBindings } from '@/lib/store/session';
 import { listWorkspaces } from '@/lib/store/workspaces';
 import type { PickerRow } from '@/lib/ui/picker';
-import { filterTabs, mainView, sidebarGroups, tabLabel, withoutManager } from '@/lib/ui/sidebar';
+import { filterTabs, mainView, sidebarGroups, withoutManager } from '@/lib/ui/sidebar';
 import { useAction } from '@/lib/ui/useAction';
 import { ActionMenu } from '@/lib/ui/ActionMenu';
 import { Favicon } from '@/lib/ui/Favicon';
@@ -50,16 +50,39 @@ async function loadState(): Promise<State> {
   return { windowId, workspaces, bound: new Set(bindings.values()), tabs };
 }
 
-/** Reloads the state after any tab or storage change, at most once per 100 ms. */
-function useLiveState(): State | null {
+/**
+ * Reloads the state after any tab or storage change, at most once per 100 ms. Only the result of the
+ * latest request applies. A failed load gives an error message.
+ */
+function useLiveState(): { state: State | null; loadError: string } {
   const [state, setState] = useState<State | null>(null);
+  const [loadError, setLoadError] = useState('');
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+    let latest = 0;
+    const load = () => {
+      latest += 1;
+      const request = latest;
+      loadState().then(
+        (next) => {
+          if (!disposed && request === latest) {
+            setState(next);
+            setLoadError('');
+          }
+        },
+        () => {
+          if (!disposed && request === latest) {
+            setLoadError('Doca could not load your workspaces. Reload this tab to try again.');
+          }
+        },
+      );
+    };
     const refresh = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => void loadState().then(setState), 100);
+      timer = setTimeout(load, 100);
     };
-    void loadState().then(setState);
+    load();
     const events = [
       browser.tabs.onCreated,
       browser.tabs.onRemoved,
@@ -71,15 +94,19 @@ function useLiveState(): State | null {
       browser.storage.onChanged,
     ] as Array<{ addListener(cb: () => void): void; removeListener(cb: () => void): void }>;
     events.forEach((event) => event.addListener(refresh));
-    return () => events.forEach((event) => event.removeListener(refresh));
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      events.forEach((event) => event.removeListener(refresh));
+    };
   }, []);
-  return state;
+  return { state, loadError };
 }
 
 const tabCount = (count: number) => `${count} ${count === 1 ? 'tab' : 'tabs'}`;
 
 export function App() {
-  const state = useLiveState();
+  const { state, loadError } = useLiveState();
   const [query, setQuery] = useState('');
   const searchInput = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -106,8 +133,14 @@ export function App() {
   const createOpener = useRef('.side-action');
 
   useEffect(() => {
-    if (pendingFocus.current) {
-      const target = document.querySelector<HTMLElement>(pendingFocus.current);
+    const selector = pendingFocus.current;
+    if (selector) {
+      let target: HTMLElement | null = null;
+      try {
+        target = document.querySelector<HTMLElement>(selector);
+      } catch {
+        // An invalid selector has no target.
+      }
       target?.focus();
       // A disabled target cannot take the focus. The next render tries again.
       if (!target || document.activeElement === target) {
@@ -157,14 +190,17 @@ export function App() {
       <div class="layout">
         <nav class="sidebar" aria-label="Workspaces">
           <div class="brand">Doca</div>
-          <p class="side-empty">Loading workspaces…</p>
+          <p class="side-empty">{loadError ? 'Workspaces are not available.' : 'Loading workspaces…'}</p>
         </nav>
-        <main class="main" aria-busy="true">
+        <main class="main" aria-busy={loadError ? undefined : 'true'}>
           <div class="main-top">
+            <div role="alert">{loadError && <p class="error">{loadError}</p>}</div>
             <header class="header">
-              <p class="header-loading" role="status">
-                Loading…
-              </p>
+              {!loadError && (
+                <p class="header-loading" role="status">
+                  Loading…
+                </p>
+              )}
             </header>
           </div>
         </main>
@@ -250,10 +286,20 @@ export function App() {
     return reply;
   };
 
-  const triggerOf = (id: string) => `[data-menu-trigger="${id}"]`;
+  const triggerOf = (id: string) => `[data-menu-trigger="${CSS.escape(id)}"]`;
+
+  const changeSelection = (update: (old: Set<number>) => Set<number>) => {
+    setError('');
+    setSelected(update);
+  };
+
+  const changeQuery = (value: string) => {
+    setError('');
+    setQuery(value);
+  };
 
   const toggle = (id: number) =>
-    setSelected((old) => {
+    changeSelection((old) => {
       const next = new Set(old);
       if (next.has(id)) {
         next.delete(id);
@@ -263,13 +309,18 @@ export function App() {
       return next;
     });
 
+  const goToTab = (tabId: number) => {
+    setError('');
+    browser.tabs.update(tabId, { active: true }).catch(() => setError('This tab is not available any more.'));
+  };
+
   const visibleIds = tabs.map((tab) => tab.id);
   const selectedVisible = visibleIds.filter((id) => selected.has(id)).length;
   const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
 
   /** Selects every visible tab, or clears them when all are selected. Tabs hidden by the search stay as they are. */
   const toggleAll = () =>
-    setSelected((old) => {
+    changeSelection((old) => {
       const next = new Set(old);
       visibleIds.forEach((id) => (allVisibleSelected ? next.delete(id) : next.add(id)));
       return next;
@@ -362,15 +413,22 @@ export function App() {
     setCreating(true);
   };
 
+  const openRename = (ws: Workspace) => {
+    setDialogError('');
+    setRenaming(ws);
+  };
+
   const closeRename = () => {
     if (renaming) {
       pendingFocus.current = triggerOf(renaming.id);
     }
+    setDialogError('');
     setRenaming(null);
   };
 
   const closeCreate = () => {
     pendingFocus.current = createOpener.current;
+    setDialogError('');
     setCreating(false);
   };
 
@@ -425,7 +483,7 @@ export function App() {
                 },
               ]
             : [],
-          [{ label: 'Rename', icon: <Icon icon={Pencil} />, onSelect: () => setRenaming(ws) }],
+          [{ label: 'Rename', icon: <Icon icon={Pencil} />, onSelect: () => openRename(ws) }],
           [{ label: 'Delete', icon: <Icon icon={Trash} />, danger: true, onSelect: () => setDeleting(ws) }],
         ]}
       />
@@ -479,11 +537,11 @@ export function App() {
               aria-label="Search workspaces and tabs"
               placeholder="Search"
               value={query}
-              onInput={(event) => setQuery(event.currentTarget.value)}
+              onInput={(event) => changeQuery(event.currentTarget.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Escape' && query !== '') {
                   event.preventDefault();
-                  setQuery('');
+                  changeQuery('');
                 }
               }}
             />
@@ -493,7 +551,7 @@ export function App() {
                 class="ghost search-clear"
                 aria-label="Clear search"
                 onClick={() => {
-                  setQuery('');
+                  changeQuery('');
                   searchInput.current?.focus();
                 }}
               >
@@ -535,7 +593,7 @@ export function App() {
                   onPick={(row) => void moveSelected(row)}
                 />
               </div>
-              <button class="ghost" onClick={() => setSelected(new Set())}>
+              <button class="ghost" onClick={() => changeSelection(() => new Set())}>
                 Clear
               </button>
             </>
@@ -555,12 +613,12 @@ export function App() {
             draggable
             onDragStart={(event) => event.dataTransfer?.setData(DRAG_TYPE, String(tab.id))}
           >
-            <input type="checkbox" checked={selected.has(tab.id)} onChange={() => toggle(tab.id)} aria-label={`Select ${tabLabel(tab)}`} />
+            <input type="checkbox" checked={selected.has(tab.id)} onChange={() => toggle(tab.id)} aria-label={`Select ${title}`} />
             <Favicon src={tab.favIconUrl} />
             <button
               class={`tab-title plain${showUrl ? '' : ' url-title'}`}
               title={tab.url}
-              onClick={() => void browser.tabs.update(tab.id, { active: true })}
+              onClick={() => goToTab(tab.id)}
             >
               {title}
             </button>

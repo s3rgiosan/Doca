@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { newWorkspace } from '@/lib/model/workspace';
-import { firstPickable, pickerRows, type PickerRow } from '@/lib/ui/picker';
+import { firstPickable, nextHighlight, pickerRows, type PickerRow } from '@/lib/ui/picker';
 
 const ws = (id: string, name: string) => newWorkspace({ id, name, deviceId: 'd', now: 0 });
 const all = [ws('1', 'Research'), ws('2', 'Client X'), ws('3', 'Personal'), ws('4', 'Client Y')];
@@ -44,5 +44,28 @@ describe('firstPickable', () => {
   it('picks nothing for empty text, because a new workspace needs a name', () => {
     const rows = pickerRows(all, { currentId: '2', showCurrent: true, bound, query: '' });
     expect(firstPickable(rows, '')).toBe(-1);
+  });
+});
+
+describe('nextHighlight', () => {
+  const rowsFor = (bounded: Set<string>, query = '') => pickerRows(all, { currentId: '2', showCurrent: false, bound: bounded, query });
+  const before = { rows: rowsFor(new Set(['1'])), query: '' };
+
+  it('keeps the highlighted workspace when only the rows change', () => {
+    // Rows: new, Research, Client Y, Personal. The user highlighted Personal (index 3).
+    const after = { rows: rowsFor(new Set(['1', '3'])), query: '' };
+    const index = nextHighlight(before, after, 3);
+    const row = after.rows[index]!;
+    expect(row.kind === 'workspace' && row.ws.name).toBe('Personal');
+  });
+
+  it('falls back to firstPickable when the highlighted workspace is gone', () => {
+    const after = { rows: pickerRows(all.filter((w) => w.id !== '3'), { currentId: '2', showCurrent: false, bound, query: '' }), query: '' };
+    expect(nextHighlight(before, after, 3)).toBe(firstPickable(after.rows, ''));
+  });
+
+  it('resets when the query changes', () => {
+    const after = { rows: rowsFor(new Set(['1']), 'per'), query: 'per' };
+    expect(nextHighlight(before, after, 3)).toBe(firstPickable(after.rows, 'per'));
   });
 });

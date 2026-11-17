@@ -82,6 +82,7 @@ function Popup() {
   const [state, setState] = useState<State | null>(null);
   const [target, setTarget] = useState<PickerRow | null>(null);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [openElsewhere, setOpenElsewhere] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const moveButton = useRef<HTMLButtonElement>(null);
@@ -90,7 +91,7 @@ function Popup() {
   const saveFieldId = useId();
 
   useEffect(() => {
-    void loadState().then(setState);
+    loadState().then(setState, () => setLoadError('Doca could not load your workspaces. Close this popup and open it again.'));
   }, []);
 
   // After a pick, Enter moves the tab.
@@ -100,6 +101,15 @@ function Popup() {
     }
   }, [target]);
 
+  if (!state && loadError) {
+    return (
+      <div class="popup">
+        <div role="alert">
+          <p class="error">{loadError}</p>
+        </div>
+      </div>
+    );
+  }
   if (!state) {
     return (
       <div class="popup" aria-busy="true">

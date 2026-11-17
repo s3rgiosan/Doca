@@ -9,6 +9,7 @@ import { getWorkspace } from '../store/workspaces';
 /**
  * Opens a saved workspace in a new window. The manager tab is pinned first. The first saved tab
  * loads and becomes active. All other tabs are created in the background and discarded at once.
+ * The restore flag is cleared and a save is scheduled when the open succeeds or fails.
  */
 export async function openWorkspace(port: BrowserPort, wsId: string): Promise<number> {
   const ws = await getWorkspace(wsId);
@@ -16,16 +17,22 @@ export async function openWorkspace(port: BrowserPort, wsId: string): Promise<nu
     throw new Error(`Workspace ${wsId} does not exist`);
   }
   await setRestoring(wsId, Date.now());
-  const win = await port.createWindow(managerUrl(port.managerBase, wsId));
-  const managerTab = win.tabs[0]!;
-  await port.pinTab(managerTab.id);
-  await bindWindow(win.id, wsId);
-  await setSkipFallback(wsId, false);
+  try {
+    const win = await port.createWindow(managerUrl(port.managerBase, wsId));
+    const managerTab = win.tabs[0];
+    if (!managerTab) {
+      throw new Error('The new window has no manager tab.');
+    }
+    await port.pinTab(managerTab.id);
+    await bindWindow(win.id, wsId);
+    await setSkipFallback(wsId, false);
 
-  await restoreTabs(port, win.id, ws);
-  await setRestoring(wsId, null);
-  await markDirty(wsId, Date.now());
-  return win.id;
+    await restoreTabs(port, win.id, ws);
+    return win.id;
+  } finally {
+    await setRestoring(wsId, null);
+    await markDirty(wsId, Date.now());
+  }
 }
 
 /** Focuses the window of the workspace. A workspace with no window opens in a new one. */

@@ -140,7 +140,36 @@ async function postToken(
   if (!response.ok) {
     throw new OAuthError(readErrorCode(text) ?? `http_${response.status}`, text);
   }
-  return JSON.parse(text) as TokenResponse;
+  return parseTokenResponse(text);
+}
+
+/** Checks the token response and throws OAuthError `invalid_token_response` when a field is wrong. */
+function parseTokenResponse(text: string): TokenResponse {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new OAuthError('invalid_token_response', 'The token response is not valid JSON');
+  }
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new OAuthError('invalid_token_response', 'The token response is not an object');
+  }
+  const data = parsed as Record<string, unknown>;
+  if (typeof data.access_token !== 'string' || data.access_token === '') {
+    throw new OAuthError('invalid_token_response', 'The token response has no access_token');
+  }
+  if (typeof data.expires_in !== 'number' || !Number.isFinite(data.expires_in) || data.expires_in <= 0) {
+    throw new OAuthError('invalid_token_response', 'The token response has an invalid expires_in');
+  }
+  if (data.refresh_token !== undefined && typeof data.refresh_token !== 'string') {
+    throw new OAuthError('invalid_token_response', 'The token response has an invalid refresh_token');
+  }
+  return {
+    access_token: data.access_token,
+    expires_in: data.expires_in,
+    refresh_token: data.refresh_token,
+    scope: typeof data.scope === 'string' ? data.scope : '',
+  };
 }
 
 function readErrorCode(text: string): string | undefined {

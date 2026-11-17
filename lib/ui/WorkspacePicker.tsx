@@ -3,7 +3,7 @@ import type { Workspace } from '../model/workspace';
 import { Icon } from './Icon';
 import { ChevronDown } from './icons';
 import { WorkspaceDot } from './WorkspaceDot';
-import { activeOptionId, firstPickable, isPickable, optionId, pickerRows, type PickerRow } from './picker';
+import { activeOptionId, isPickable, nextHighlight, optionId, pickerRows, type PickerRow } from './picker';
 
 interface Props {
   workspaces: Workspace[];
@@ -38,8 +38,12 @@ export function WorkspacePicker(props: Props) {
     [props.workspaces, props.currentId, props.showCurrent, props.bound, query],
   );
 
+  // The rows and the query as of the last render, to tell a new query from a refresh of the rows.
+  const previous = useRef({ rows, query });
   useEffect(() => {
-    setHighlight(firstPickable(rows, query));
+    const before = previous.current;
+    previous.current = { rows, query };
+    setHighlight(nextHighlight(before, { rows, query }, highlight));
   }, [rows, query]);
 
   useEffect(() => {
@@ -90,7 +94,11 @@ export function WorkspacePicker(props: Props) {
         break;
       case 'Enter':
         event.preventDefault();
-        pick(rows[highlight]);
+        if (open) {
+          pick(rows[highlight]);
+        } else {
+          setOpen(true);
+        }
         break;
       case 'Escape':
         if (open) {

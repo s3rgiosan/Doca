@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { flushDue, saveWindow } from '@/lib/actions/save';
 import { managerUrl } from '@/lib/model/manager-url';
 import { newWorkspace } from '@/lib/model/workspace';
-import { markDirty } from '@/lib/store/dirty';
+import { markDirty, nextDue } from '@/lib/store/dirty';
 import { bindWindow, markStartupDone, setRestoring } from '@/lib/store/session';
 import { getWorkspace, putWorkspace } from '@/lib/store/workspaces';
 import { createFakePort, FAKE_MANAGER_BASE as base } from '../helpers/fake-port';
@@ -55,6 +55,29 @@ describe('saveWindow during a restore', () => {
     expect((await getWorkspace('a'))!.tabs).toEqual([]);
     await saveWindow(port, windowId, 60_000);
     expect((await getWorkspace('a'))!.tabs).toHaveLength(1);
+  });
+
+  it('saves the other workspaces and marks a failed one due again', async () => {
+    const { port, windowId } = await boundWindow();
+    await putWorkspace(newWorkspace({ id: 'b', name: 'B', deviceId: 'd', now: 0 }), 1);
+    const other = await port.createWindow(managerUrl(base, 'b'));
+    await port.createTab({ windowId: other.id, url: 'https://y.test/', active: false });
+    await bindWindow(other.id, 'b');
+    await markStartupDone();
+    await markDirty('a', 0);
+    await markDirty('b', 0);
+    const getWindow = port.getWindow.bind(port);
+    port.getWindow = async (id) => {
+      if (id === windowId) {
+        throw new Error('boom');
+      }
+      return getWindow(id);
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await flushDue(port, 1000);
+    warn.mockRestore();
+    expect((await getWorkspace('b'))!.tabs).toHaveLength(1);
+    expect(await nextDue()).toBe(2000);
   });
 });
 

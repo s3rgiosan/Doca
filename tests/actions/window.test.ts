@@ -4,7 +4,7 @@ import { assignWindow, createEmptyWorkspace, createFromWindow, deleteWorkspace, 
 import { managerUrl, parseManagerUrl } from '@/lib/model/manager-url';
 import { newWorkspace, type SavedTab } from '@/lib/model/workspace';
 import { getSkipFallback } from '@/lib/store/device';
-import { bindWindow, getBindings, markStartupDone, setRestoring, windowForWorkspace } from '@/lib/store/session';
+import { bindWindow, getBindings, isRestoring, markStartupDone, setRestoring, windowForWorkspace } from '@/lib/store/session';
 import { getWorkspace, listWorkspaces, putWorkspace } from '@/lib/store/workspaces';
 import { createFakePort, FAKE_MANAGER_BASE as base, type FakePort } from '../helpers/fake-port';
 
@@ -81,6 +81,35 @@ describe('window actions', () => {
     const tabs = (await port.getWindow(windowId))!.tabs;
     expect(tabs.map((t) => t.url)).toEqual([managerUrl(base, 'w'), 'https://a.test/', 'https://b.test/', 'https://c.test/']);
     expect(tabs.map((t) => t.discarded)).toEqual([false, false, true, false]);
+  });
+
+  it('blocks saves while assigning opens the saved tabs, then saves the result', async () => {
+    await putWorkspace(newWorkspace({ id: 'w', name: 'W', deviceId: 'd', now: 0, tabs: saved(['https://b.test/']) }), 1);
+    const port = createFakePort();
+    const windowId = await windowWith(port, ['https://a.test/']);
+    const createTab = port.createTab.bind(port);
+    const guard: boolean[] = [];
+    port.createTab = async (options) => {
+      if (options.url === 'https://b.test/') {
+        guard.push(await isRestoring('w', 5));
+      }
+      return createTab(options);
+    };
+    await assignWindow(port, windowId, 'w', 5);
+    expect(guard).toEqual([true]);
+    expect(await isRestoring('w', 5)).toBe(false);
+    expect((await getWorkspace('w'))!.tabs.map((t) => t.url)).toEqual(['https://a.test/', 'https://b.test/']);
+  });
+
+  it('clears the restore guard when assigning fails', async () => {
+    await putWorkspace(newWorkspace({ id: 'w', name: 'W', deviceId: 'd', now: 0, tabs: saved(['https://b.test/']) }), 1);
+    const port = createFakePort();
+    const windowId = await windowWith(port, ['https://a.test/']);
+    port.createTab = async () => {
+      throw new Error('no tab');
+    };
+    await expect(assignWindow(port, windowId, 'w', 5)).rejects.toThrow('no tab');
+    expect(await isRestoring('w', 5)).toBe(false);
   });
 
   it('changes nothing when the workspace is open in another window', async () => {
