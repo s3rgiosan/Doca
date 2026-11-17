@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/doca-dark.png">
+    <img src="assets/doca.png" alt="Doca icon" width="128" height="128">
+  </picture>
+</p>
+
 # Doca
 
 Workspaces that dock in their own window.
