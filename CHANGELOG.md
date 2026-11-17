@@ -5,6 +5,35 @@ All notable changes to Doca will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-11-17
+
+### Changed
+
+- The README explains the permissions that Doca asks for, and lists the tab search, Select all, the popup tab list and Ctrl-click or Cmd-click to open a workspace in a new window.
+
+### Fixed
+
+- Import gives new IDs to workspaces and tabs whose IDs are not valid or repeat in the file, so a crafted file cannot overwrite the workspace list or another imported workspace.
+- Import skips tabs whose address cannot be reopened safely, such as `javascript:` and `data:` addresses, and rejects files with more than 500 workspaces or a workspace with more than 1000 tabs.
+- Doca checks the settings before it saves them.
+- A workspace assigned to a window keeps all its saved tabs while the missing tabs open.
+- When the save of one workspace fails, the other workspaces still save, and the failed save runs again.
+- A workspace that fails to open in a new window no longer blocks its saves for a minute.
+- The `doca` address bar keyword waits for Doca to start, so it does not open a second window for a workspace that is already open.
+- **Move to…** a new workspace no longer leaves an empty workspace when no selected tab can move.
+- A suspended tab keeps its saved identity when the browser gives it a new tab ID.
+- In **Move to…**, the highlighted workspace stays in place when the tab list refreshes. Enter on a closed list opens it.
+- The Doca tab and the popup show an error when they cannot load, and an older load no longer replaces a newer one.
+- An error from creating a workspace no longer shows in the Rename dialog, and page errors clear when you change the selection or the search.
+- Clicking a tab that has just closed shows a message.
+- Favicons load only from secure or inline sources, with no referrer.
+- Short addresses keep look-alike international domain names in their `xn--` form and remove hidden direction characters.
+- A tab with no title and no address shows "Untitled tab".
+
+### Security
+
+- The release workflow pins its actions to commit SHAs and no longer replaces a published zip.
+
 ## [1.0.2] - 2026-11-17
 
 ### Added
@@ -56,7 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workspaces return to their windows after a browser restart, and a workspace that opens loads its first tab and keeps the other tabs suspended until you click them.
 - The interface follows the light or dark colour scheme of the system.
 
-[Unreleased]: https://github.com/s3rgiosan/Doca/compare/1.0.2...HEAD
+[Unreleased]: https://github.com/s3rgiosan/Doca/compare/1.0.3...HEAD
+[1.0.3]: https://github.com/s3rgiosan/Doca/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/s3rgiosan/Doca/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/s3rgiosan/Doca/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/s3rgiosan/Doca/releases/tag/1.0.0
