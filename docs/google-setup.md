@@ -2,7 +2,7 @@
 
 # Set up Google Drive sync
 
-Doca syncs your workspaces through a hidden folder in your own Google Drive. To use sync, you create a free Google Cloud project and an OAuth client. You do this one time. The OAuth client is for sync work in a later release. Put the values in `.env.local` as `WXT_GOOGLE_CLIENT_ID` and `WXT_GOOGLE_CLIENT_SECRET`, as `.env.example` shows.
+Doca will sync your workspaces through a hidden folder in your own Google Drive in a later release. To use sync, you create a free Google Cloud project and an OAuth client. You do this one time. Put the values in `.env.local` as `WXT_GOOGLE_CLIENT_ID` and `WXT_GOOGLE_CLIENT_SECRET`, as `.env.example` shows.
 
 You need:
 
@@ -103,7 +103,7 @@ To sync between two computers, use the same client ID and secret on both compute
 
 | Error | Cause | Fix |
 |---|---|---|
-| `redirect_uri_mismatch` | The redirect URI in the client is not the same as the one Doca sends. | Compare the redirect URI in the client with the one in [Values to copy](#values-to-copy). Fix the scheme, the case and the `/` at the end. |
+| `redirect_uri_mismatch` | The redirect URI in the client is not the same as the one Doca will send. | Compare the redirect URI in the client with the one in [Values to copy](#values-to-copy). Fix the scheme, the case and the `/` at the end. |
 | `invalid_client` | The client ID or the client secret is wrong. | Copy both values again from [Clients](https://console.developers.google.com/auth/clients). Build Doca again and reload it. |
 | `org_internal` | The audience is **Internal**, and your account is not in that organization. | In [Audience](https://console.developers.google.com/auth/audience), change the user type to **External**. |
 | `access_denied` | You cancelled the sign-in, or you did not allow access. | Start the sign-in again and allow access. |
