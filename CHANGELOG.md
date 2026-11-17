@@ -5,6 +5,12 @@ All notable changes to Doca will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-11-17
+
+### Added
+
+- Each release has the extension zip, built and tested from the tagged code. The README explains how to install Doca from it.
+
 ## [1.0.1] - 2026-11-17
 
 ### Added
@@ -50,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workspaces return to their windows after a browser restart, and a workspace that opens loads its first tab and keeps the other tabs suspended until you click them.
 - The interface follows the light or dark colour scheme of the system.
 
-[Unreleased]: https://github.com/s3rgiosan/Doca/compare/1.0.1...HEAD
+[Unreleased]: https://github.com/s3rgiosan/Doca/compare/1.0.2...HEAD
+[1.0.2]: https://github.com/s3rgiosan/Doca/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/s3rgiosan/Doca/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/s3rgiosan/Doca/releases/tag/1.0.0

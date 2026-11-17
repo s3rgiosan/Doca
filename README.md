@@ -36,6 +36,16 @@ When you close the settings in the Doca tab with edits that are not saved, Doca 
 
 Export your workspaces from time to time. The export file is your only backup.
 
+## Install
+
+1. Download `doca-<version>-chrome.zip` from the [latest release](https://github.com/s3rgiosan/doca/releases/latest).
+2. Unzip it to a folder that you keep. The browser loads Doca from that folder.
+3. Open the extensions page of your browser, for example `chrome://extensions` in Chrome or `brave://extensions` in Brave.
+4. Turn on Developer mode.
+5. Click **Load unpacked** and select the unzipped folder.
+
+To update, unzip the new release into the same folder and click the reload button of Doca on the extensions page.
+
 ## Requirements
 
 - Node 22.12 or later
@@ -63,6 +73,13 @@ Export your workspaces from time to time. The export file is your only backup.
 Run the unit tests with `npm test`. Record the manual checks in `docs/local-release-checks.md`.
 
 To make a zip file for the browser store, run `npx wxt zip`.
+
+## Release
+
+1. Update the version in `package.json` and add its section to `CHANGELOG.md`.
+2. Commit, then push a tag with the version, for example `1.0.2`.
+
+The release workflow runs the type check and the tests, builds the zip and publishes a GitHub release with the zip and the changelog section.
 
 ## License
 
