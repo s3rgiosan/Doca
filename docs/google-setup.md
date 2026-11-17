@@ -21,7 +21,7 @@ Use these values in the steps below.
 | Scope | `https://www.googleapis.com/auth/drive.appdata` |
 | Authorized redirect URI | `https://amgfiklccheliknilepbhfihobjniiim.chromiumapp.org/` |
 
-The redirect URI comes from the Doca extension ID, `amgfiklccheliknilepbhfihobjniiim`. The ID is fixed by the `key` in `wxt.config.ts` and is the same in Chrome and Brave.
+The redirect URI comes from the Doca extension ID, `amgfiklccheliknilepbhfihobjniiim`. The ID is fixed by the `key` in `wxt.config.ts` and is the same in every Chromium-based browser.
 
 ## 1. Create the project
 

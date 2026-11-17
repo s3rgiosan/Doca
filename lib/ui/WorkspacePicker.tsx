@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'preact/hooks';
 import type { Workspace } from '../model/workspace';
+import { Icon } from './Icon';
+import { ChevronDown } from './icons';
 import { WorkspaceDot } from './WorkspaceDot';
 import { activeOptionId, firstPickable, isPickable, optionId, pickerRows, type PickerRow } from './picker';
 
@@ -17,10 +19,10 @@ interface Props {
   ariaLabel?: string;
   /** The id of the input, for a `<label for>`. */
   inputId?: string;
-  /** Focuses the field when it appears. The list stays closed until the user types, clicks, or presses ArrowDown. */
-  autoFocus?: boolean;
   disabled?: boolean;
   onPick(row: PickerRow): void;
+  /** Called with the open state of the list each time it changes. */
+  onOpenChange?(open: boolean): void;
 }
 
 /** A search field with a list of workspaces under it. Typing filters the list. */
@@ -30,8 +32,6 @@ export function WorkspacePicker(props: Props) {
   const [highlight, setHighlight] = useState(-1);
   const input = useRef<HTMLInputElement>(null);
   const listId = useId();
-  // The focus that autoFocus sets must not open the list.
-  const quietFocus = useRef(false);
 
   const rows = useMemo(
     () => pickerRows(props.workspaces, { currentId: props.currentId, showCurrent: props.showCurrent, bound: props.bound, query }),
@@ -43,12 +43,8 @@ export function WorkspacePicker(props: Props) {
   }, [rows, query]);
 
   useEffect(() => {
-    if (props.autoFocus) {
-      quietFocus.current = true;
-      input.current?.focus();
-      quietFocus.current = false;
-    }
-  }, []);
+    props.onOpenChange?.(open);
+  }, [open]);
 
   useEffect(() => {
     if (open && highlight >= 0) {
@@ -110,41 +106,46 @@ export function WorkspacePicker(props: Props) {
 
   const text = (row: PickerRow) => {
     if (row.kind === 'new') {
-      return row.name === '' ? '+ New workspace: type a name' : `+ New workspace "${row.name}"`;
+      return row.name === '' ? '+ New workspace' : `+ New workspace "${row.name}"`;
     }
     return row.ws.name;
   };
 
   return (
     <div class="picker">
-      {!open && props.labelWorkspace && (
-        <span class="picker-dot">
-          <WorkspaceDot ws={props.labelWorkspace} />
+      <div class="picker-field">
+        {!open && props.labelWorkspace && (
+          <span class="picker-dot">
+            <WorkspaceDot ws={props.labelWorkspace} />
+          </span>
+        )}
+        <input
+          ref={input}
+          type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={open ? listId : undefined}
+          aria-activedescendant={activeOptionId(open, highlight, rows.length, listId)}
+          aria-autocomplete="list"
+          aria-label={props.ariaLabel}
+          id={props.inputId}
+          class={!open && props.labelWorkspace ? 'with-dot' : undefined}
+          disabled={props.disabled}
+          placeholder={open ? 'Find or create a workspace' : props.placeholder}
+          value={open ? query : props.label}
+          onFocus={() => setOpen(true)}
+          onClick={() => setOpen(true)}
+          onBlur={close}
+          onInput={(event) => {
+            setOpen(true);
+            setQuery(event.currentTarget.value);
+          }}
+          onKeyDown={onKeyDown}
+        />
+        <span class={`picker-chevron${open ? ' open' : ''}`}>
+          <Icon icon={ChevronDown} size={16} />
         </span>
-      )}
-      <input
-        ref={input}
-        type="text"
-        role="combobox"
-        aria-expanded={open}
-        aria-controls={open ? listId : undefined}
-        aria-activedescendant={activeOptionId(open, highlight, rows.length, listId)}
-        aria-autocomplete="list"
-        aria-label={props.ariaLabel}
-        id={props.inputId}
-        class={!open && props.labelWorkspace ? 'with-dot' : undefined}
-        disabled={props.disabled}
-        placeholder={open ? 'Type the name of a workspace' : props.placeholder}
-        value={open ? query : props.label}
-        onFocus={() => !quietFocus.current && setOpen(true)}
-        onClick={() => setOpen(true)}
-        onBlur={close}
-        onInput={(event) => {
-          setOpen(true);
-          setQuery(event.currentTarget.value);
-        }}
-        onKeyDown={onKeyDown}
-      />
+      </div>
       {open && (
         <ul class="picker-list" id={listId} role="listbox">
           {rows.map((row, index) => (

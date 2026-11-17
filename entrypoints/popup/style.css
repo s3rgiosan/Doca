@@ -3,31 +3,33 @@ body {
 }
 
 .popup {
-  padding: 14px 16px 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .head {
-  font-size: 16px;
+  font-size: var(--text-lg);
+  line-height: 24px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--text);
   text-align: left;
-  padding-bottom: 10px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
 
 .tab {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
-  padding: 4px 0;
+  margin-bottom: 4px;
 }
 
 .favicon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
 }
 
@@ -47,28 +49,37 @@ body {
 }
 
 .tab-url {
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 18px;
   color: var(--muted);
 }
 
 .field-label {
-  font-size: 14px;
-  font-weight: 500;
   color: var(--muted);
-  margin: 0 0 -4px;
+  margin: 0 0 -6px;
 }
 
-/* The popup grows to fit its content, so the list stays in the page flow. */
+/* The open list overlays the content below the field. The popup keeps room for it. */
 .popup .picker-list {
-  position: static;
-  margin-top: 4px;
-  box-shadow: none;
+  max-height: 220px;
+}
+
+.popup.list-open {
+  min-height: 560px;
+}
+
+.field-hint {
+  margin: -6px 0 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin-top: 4px;
 }
 
 .popup[aria-busy='true'] {
@@ -97,6 +108,8 @@ section {
   padding: 0;
   max-height: 440px;
   overflow-y: auto;
+  /* Rows span the popup width, so the favicon column lines up with the header. */
+  margin: 0 -16px;
 }
 
 .tab-row {
@@ -105,7 +118,7 @@ section {
   align-items: center;
   gap: 10px;
   text-align: left;
-  padding: 8px;
+  padding: 8px 16px;
   min-height: 36px;
 }
 

@@ -13,11 +13,13 @@ import { ActionMenu } from '@/lib/ui/ActionMenu';
 import { Favicon } from '@/lib/ui/Favicon';
 import { ConfirmDialog } from '@/lib/ui/ConfirmDialog';
 import { Icon } from '@/lib/ui/Icon';
-import { ExternalLink, Pencil, Plus, SettingsIcon, Trash } from '@/lib/ui/icons';
+import { ExternalLink, Pencil, Plus, SettingsIcon, Trash, X } from '@/lib/ui/icons';
 import { Modal } from '@/lib/ui/Modal';
 import { NameDialog } from '@/lib/ui/NameDialog';
 import { isMacPlatform, newWindowClick, newWindowHint } from '@/lib/ui/platform';
 import { Settings } from '@/lib/ui/Settings';
+import { shortUrl, tabLabel as tabLabelParts } from '@/lib/ui/short-url';
+import { workspaceIconUrl } from '@/lib/ui/tab-icon';
 import { SuspendedIcon } from '@/lib/ui/SuspendedIcon';
 import { Toast, type ToastMessage } from '@/lib/ui/Toast';
 import { WorkspaceDot } from '@/lib/ui/WorkspaceDot';
@@ -26,6 +28,7 @@ import { WorkspacePicker } from '@/lib/ui/WorkspacePicker';
 const wsId = new URLSearchParams(location.search).get('ws') ?? '';
 const managerBase = location.href.split(/[?#]/)[0]!;
 const DRAG_TYPE = 'application/x-doca-tab';
+const DEFAULT_TAB_ICON = '/icon/32.png';
 const mac = isMacPlatform();
 
 interface State {
@@ -78,6 +81,7 @@ const tabCount = (count: number) => `${count} ${count === 1 ? 'tab' : 'tabs'}`;
 export function App() {
   const state = useLiveState();
   const [query, setQuery] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [error, setError] = useState('');
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -117,6 +121,25 @@ export function App() {
     document.title = current ? current.name : 'Doca';
   }, [current?.name]);
 
+  // The pinned Doca tab shows only its icon, so the icon shows the workspace initials on its colour.
+  const currentColor = current ? workspaceColor(current) : null;
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) {
+      return;
+    }
+    const update = () => {
+      const fill = currentColor ? getComputedStyle(document.documentElement).getPropertyValue(`--ws-${currentColor}`).trim() : '';
+      const url = current && fill !== '' ? workspaceIconUrl(current.name, fill) : null;
+      link.type = url ? 'image/svg+xml' : 'image/png';
+      link.href = url ?? DEFAULT_TAB_ICON;
+    };
+    update();
+    const scheme = window.matchMedia('(prefers-color-scheme: dark)');
+    scheme.addEventListener('change', update);
+    return () => scheme.removeEventListener('change', update);
+  }, [current?.name, currentColor]);
+
   // A tab that closed or moved away cannot stay selected.
   useEffect(() => {
     if (!state) {
@@ -126,7 +149,7 @@ export function App() {
     setSelected((old) => new Set([...old].filter((id) => ids.has(id))));
   }, [state]);
 
-  const groups = useMemo(() => sidebarGroups(state?.workspaces ?? [], state?.bound ?? new Set(), query), [state, query]);
+  const groups = useMemo(() => sidebarGroups(state?.workspaces ?? [], state?.bound ?? new Set(), query, wsId), [state, query]);
   const tabs = useMemo(() => filterTabs(state?.tabs ?? [], query), [state, query]);
 
   if (!state) {
@@ -134,11 +157,16 @@ export function App() {
       <div class="layout">
         <nav class="sidebar" aria-label="Workspaces">
           <div class="brand">Doca</div>
+          <p class="side-empty">Loading workspaces…</p>
         </nav>
         <main class="main" aria-busy="true">
-          <p class="muted" role="status">
-            Loading…
-          </p>
+          <div class="main-top">
+            <header class="header">
+              <p class="header-loading" role="status">
+                Loading…
+              </p>
+            </header>
+          </div>
         </main>
       </div>
     );
@@ -235,6 +263,18 @@ export function App() {
       return next;
     });
 
+  const visibleIds = tabs.map((tab) => tab.id);
+  const selectedVisible = visibleIds.filter((id) => selected.has(id)).length;
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+
+  /** Selects every visible tab, or clears them when all are selected. Tabs hidden by the search stay as they are. */
+  const toggleAll = () =>
+    setSelected((old) => {
+      const next = new Set(old);
+      visibleIds.forEach((id) => (allVisibleSelected ? next.delete(id) : next.add(id)));
+      return next;
+    });
+
   const moveSelected = async (target: PickerRow) => {
     const tabIds = [...selected];
     let reply: Reply | undefined;
@@ -300,7 +340,7 @@ export function App() {
   };
 
   const backToSettings = () => {
-    pendingFocus.current = '.modal.wide .modal-foot .primary';
+    pendingFocus.current = '.modal.wide .modal-foot .secondary';
     setAskSaveSettings(false);
   };
 
@@ -337,7 +377,7 @@ export function App() {
   const row = (ws: Workspace) => (
     <li
       key={ws.id}
-      class={`ws-row${ws.id === wsId ? ' current' : ''}${dropTarget === ws.id ? ' drop' : ''}`}
+      class={`ws-row${ws.id === wsId ? ' current' : ''}${groups.unmatched.has(ws.id) ? ' no-match' : ''}${dropTarget === ws.id ? ' drop' : ''}`}
       onDragOver={(event) => {
         if (ws.id !== wsId && event.dataTransfer?.types.includes(DRAG_TYPE)) {
           event.preventDefault();
@@ -414,11 +454,11 @@ export function App() {
         return (
           <section class="empty-state" aria-labelledby="empty-title">
             <h1 id="empty-title">This workspace was deleted</h1>
+            <p class="muted">Pick a workspace on the left, or make a new one. You can also close this tab.</p>
             <button class="primary" disabled={busy} onClick={() => openCreate('.empty-state .primary')}>
               <Icon icon={Plus} />
               New workspace
             </button>
-            <p class="muted">Or pick a workspace on the left. You can also close this tab.</p>
           </section>
         );
     }
@@ -427,47 +467,88 @@ export function App() {
   /** The header, the selection bar and the tab list of the workspace of this page. */
   const workspaceMain = (ws: Workspace) => (
     <>
-      <header class="header">
-        <WorkspaceDot ws={ws} />
-        <h1 title={ws.name}>{ws.name}</h1>
-        <span class="muted tab-count">
-          {tabs.length} {tabs.length === 1 ? 'tab' : 'tabs'}
-        </span>
-        <input
-          type="search"
-          aria-label="Search workspaces and tabs"
-          placeholder="Search workspaces and tabs"
-          value={query}
-          onInput={(event) => setQuery(event.currentTarget.value)}
-        />
-      </header>
-
-      {selected.size > 0 && (
-        <div class="selection">
-          <span aria-hidden="true">
-            {selected.size} {selected.size === 1 ? 'tab' : 'tabs'} selected
-          </span>
-          <div class="move-to">
-            <WorkspacePicker
-              workspaces={state.workspaces}
-              bound={state.bound}
-              currentId={wsId}
-              showCurrent={false}
-              label=""
-              ariaLabel="Move selected tabs to"
-              disabled={busy}
-              placeholder="Move to…"
-              onPick={(row) => void moveSelected(row)}
+      <div class="main-top">
+        <div role="alert">{error && <p class="error">{error}</p>}</div>
+        <header class="header">
+          <WorkspaceDot ws={ws} />
+          <h1 title={ws.name}>{ws.name}</h1>
+          <div class="search">
+            <input
+              ref={searchInput}
+              type="search"
+              aria-label="Search workspaces and tabs"
+              placeholder="Search"
+              value={query}
+              onInput={(event) => setQuery(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape' && query !== '') {
+                  event.preventDefault();
+                  setQuery('');
+                }
+              }}
             />
+            {query !== '' && (
+              <button
+                type="button"
+                class="ghost search-clear"
+                aria-label="Clear search"
+                onClick={() => {
+                  setQuery('');
+                  searchInput.current?.focus();
+                }}
+              >
+                <Icon icon={X} />
+              </button>
+            )}
           </div>
-          <button class="plain" onClick={() => setSelected(new Set())}>
-            Clear
-          </button>
+        </header>
+
+        {/* The bar keeps its height while empty, so the list does not move when a tab is selected. */}
+        <div class={`selection${selected.size > 0 ? ' active' : ''}`}>
+          {selected.size > 0 && (
+            <label class="select-all">
+              <input
+                type="checkbox"
+                aria-label="Select all tabs"
+                checked={allVisibleSelected}
+                indeterminate={!allVisibleSelected}
+                onChange={toggleAll}
+              />
+              <span aria-hidden="true">Select all</span>
+            </label>
+          )}
+          {selected.size > 0 ? (
+            <>
+              <span class="selection-info" aria-hidden="true">
+                {selected.size} selected
+              </span>
+              <div class="move-to">
+                <WorkspacePicker
+                  workspaces={state.workspaces}
+                  bound={state.bound}
+                  currentId={wsId}
+                  showCurrent={false}
+                  label=""
+                  ariaLabel="Move selected tabs to"
+                  disabled={busy}
+                  placeholder="Move to…"
+                  onPick={(row) => void moveSelected(row)}
+                />
+              </div>
+              <button class="ghost" onClick={() => setSelected(new Set())}>
+                Clear
+              </button>
+            </>
+          ) : (
+            <span class="selection-info muted">{tabCount(tabs.length)}</span>
+          )}
         </div>
-      )}
+      </div>
 
       <ul class="tabs">
-        {tabs.map((tab) => (
+        {tabs.map((tab) => {
+          const { title, showUrl } = tabLabelParts(tab.title, tab.url);
+          return (
           <li
             key={tab.id}
             class={`tab-row${tab.active ? ' active' : ''}`}
@@ -476,12 +557,18 @@ export function App() {
           >
             <input type="checkbox" checked={selected.has(tab.id)} onChange={() => toggle(tab.id)} aria-label={`Select ${tabLabel(tab)}`} />
             <Favicon src={tab.favIconUrl} />
-            <button class="tab-title plain" title={tab.url} onClick={() => void browser.tabs.update(tab.id, { active: true })}>
-              {tabLabel(tab)}
+            <button
+              class={`tab-title plain${showUrl ? '' : ' url-title'}`}
+              title={tab.url}
+              onClick={() => void browser.tabs.update(tab.id, { active: true })}
+            >
+              {title}
             </button>
+            {showUrl && <span class="tab-url">{shortUrl(tab.url)}</span>}
             {tab.discarded && <SuspendedIcon />}
           </li>
-        ))}
+          );
+        })}
       </ul>
       {tabs.length === 0 && <p class="muted">{query ? 'No tab matches the search.' : 'This window has no other tabs.'}</p>}
     </>
@@ -491,6 +578,7 @@ export function App() {
     <div class="layout">
       <nav class="sidebar" aria-label="Workspaces">
         <div class="brand">Doca</div>
+        <div class="side-scroll">
         {groups.open.length > 0 && (
           <>
             <div class="group-label" id="group-open">
@@ -508,10 +596,14 @@ export function App() {
           </>
         )}
         {query.trim() !== '' && groups.open.length === 0 && groups.closed.length === 0 && <p class="side-empty">No workspace matches.</p>}
-        <button class="plain side-action" disabled={busy} onClick={() => openCreate('.side-action')}>
-          <Icon icon={Plus} />
-          New workspace
-        </button>
+        </div>
+        <div class="side-foot">
+        {view !== 'no-workspaces' && (
+          <button class="plain side-action" disabled={busy} onClick={() => openCreate('.side-action')}>
+            <Icon icon={Plus} />
+            New workspace
+          </button>
+        )}
         <button
           class="plain side-action side-settings"
           onClick={() => {
@@ -522,10 +614,11 @@ export function App() {
           <Icon icon={SettingsIcon} />
           Settings
         </button>
+        </div>
       </nav>
 
       <main class="main">
-        <div role="alert">{error && <p class="error">{error}</p>}</div>
+        {view !== 'workspace' && <div role="alert">{error && <p class="error">{error}</p>}</div>}
         <div class="visually-hidden" role="status">
           {selected.size > 0 && `${selected.size} ${selected.size === 1 ? 'tab' : 'tabs'} selected`}
         </div>
@@ -538,7 +631,7 @@ export function App() {
           wide
           onClose={requestCloseSettings}
           footer={
-            <button type="button" class="primary" onClick={requestCloseSettings}>
+            <button type="button" class="secondary" onClick={requestCloseSettings}>
               Done
             </button>
           }

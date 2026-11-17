@@ -11,13 +11,12 @@ export interface Size {
 }
 
 export const MENU_GAP = 4;
-export const MENU_INSET = 10;
 export const VIEWPORT_MARGIN = 8;
 
 /**
- * Places a menu in viewport coordinates. The menu opens below the anchor with its left edge
- * inset from the anchor. It opens above the anchor when it would overflow the bottom, and
- * it stays within the viewport margin on every side.
+ * Places a menu in viewport coordinates. The menu opens below the anchor with its right edge
+ * on the right edge of the anchor. It opens above the anchor when it would overflow the bottom,
+ * and it stays within the viewport margin on every side.
  */
 export function placeMenu(
   anchor: Box,
@@ -33,7 +32,7 @@ export function placeMenu(
   const maxLeft = viewport.width - VIEWPORT_MARGIN - menu.width;
   const left = Math.max(
     VIEWPORT_MARGIN,
-    Math.min(anchor.left + MENU_INSET, maxLeft),
+    Math.min(anchor.left + anchor.width - menu.width, maxLeft),
   );
 
   return {

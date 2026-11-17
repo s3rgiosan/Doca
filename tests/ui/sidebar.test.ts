@@ -20,6 +20,32 @@ describe('sidebarGroups', () => {
   });
 });
 
+describe('sidebarGroups with a current workspace', () => {
+  const all = [ws('1', 'research'), ws('2', 'Client X'), ws('3', 'Personal')];
+
+  it('keeps the current workspace when it does not match and marks it', () => {
+    const groups = sidebarGroups(all, new Set(['1']), 'client', '1');
+    expect(groups.open.map((w) => w.name)).toEqual(['research']);
+    expect(groups.closed.map((w) => w.name)).toEqual(['Client X']);
+    expect([...groups.unmatched]).toEqual(['1']);
+  });
+
+  it('does not mark a current workspace that matches', () => {
+    const groups = sidebarGroups(all, new Set(), 'client', '2');
+    expect(groups.unmatched.size).toBe(0);
+  });
+
+  it('marks nothing without a current workspace', () => {
+    expect(sidebarGroups(all, new Set(), 'client').unmatched.size).toBe(0);
+  });
+
+  it('sorts numbers in names by value', () => {
+    const numbered = [ws('a', 'Workspace 10'), ws('b', 'Workspace 7'), ws('c', 'Workspace 2')];
+    const groups = sidebarGroups(numbered, new Set(), '');
+    expect(groups.closed.map((w) => w.name)).toEqual(['Workspace 2', 'Workspace 7', 'Workspace 10']);
+  });
+});
+
 describe('filterTabs', () => {
   const tabs = [
     { title: 'Project board', url: 'https://board.test/' },

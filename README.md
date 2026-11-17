@@ -2,7 +2,7 @@
 
 Workspaces that dock in their own window.
 
-Doca is a browser extension for Chrome and Brave. Each workspace owns one browser window. A pinned Doca tab at the first position of that window lists your workspaces and the tabs of the window.
+Doca is a browser extension for Chromium-based browsers. It is tested in Chrome and Brave. Each workspace owns one browser window. A pinned Doca tab at the first position of that window lists your workspaces and the tabs of the window.
 
 Doca works offline and needs no account. It stores your workspaces only in this browser. Use the export file to keep a backup.
 
@@ -32,7 +32,7 @@ Export your workspaces from time to time. The export file is your only backup.
 ## Requirements
 
 - Node 22.12 or later
-- Google Chrome or Brave
+- A Chromium-based browser. Doca is tested in Chrome and Brave.
 
 ## Build
 
@@ -48,7 +48,7 @@ Export your workspaces from time to time. The export file is your only backup.
    npm run build
    ```
 
-3. Open `chrome://extensions` in Chrome or `brave://extensions` in Brave.
+3. Open the extensions page of your browser, for example `chrome://extensions` in Chrome or `brave://extensions` in Brave.
 4. Turn on Developer mode.
 5. Click **Load unpacked** and select `.output/chrome-mv3`.
 6. Click the Doca toolbar button. The popup opens.

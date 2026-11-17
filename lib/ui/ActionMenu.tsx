@@ -59,9 +59,7 @@ export function ActionMenu(props: Props) {
       setPosition(null);
       return;
     }
-    const anchor = (
-      trigger.current?.closest(".ws-row") ?? trigger.current
-    )?.getBoundingClientRect();
+    const anchor = trigger.current?.getBoundingClientRect();
     if (!anchor) {
       return;
     }

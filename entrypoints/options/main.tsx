@@ -23,9 +23,7 @@ function OptionsPage() {
   return (
     <main class="options">
       <h1>Doca settings</h1>
-      <div class="options-panel">
-        <Settings headingLevel={2} onDirtyChange={(value) => (dirty.current = value)} />
-      </div>
+      <Settings headingLevel={2} onDirtyChange={(value) => (dirty.current = value)} />
     </main>
   );
 }

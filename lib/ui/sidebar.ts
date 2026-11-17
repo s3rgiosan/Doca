@@ -5,16 +5,21 @@ export interface SidebarGroups {
   /** Workspaces with a window on this device. */
   open: Workspace[];
   closed: Workspace[];
+  /** Ids of the shown workspaces that do not match the query. Only the current workspace can be one. */
+  unmatched: Set<string>;
 }
 
-const byName = (a: Workspace, b: Workspace) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+const byName = (a: Workspace, b: Workspace) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
 
-export function sidebarGroups(workspaces: Workspace[], bound: Set<string>, query: string): SidebarGroups {
+/** Groups the workspaces by whether they are open. The workspace `currentId` stays in the list when it does not match. */
+export function sidebarGroups(workspaces: Workspace[], bound: Set<string>, query: string, currentId?: string): SidebarGroups {
   const text = query.trim().toLowerCase();
-  const shown = workspaces.filter((ws) => ws.name.toLowerCase().includes(text)).sort(byName);
+  const matches = (ws: Workspace) => ws.name.toLowerCase().includes(text);
+  const shown = workspaces.filter((ws) => matches(ws) || ws.id === currentId).sort(byName);
   return {
     open: shown.filter((ws) => bound.has(ws.id)),
     closed: shown.filter((ws) => !bound.has(ws.id)),
+    unmatched: new Set(shown.filter((ws) => !matches(ws)).map((ws) => ws.id)),
   };
 }
 

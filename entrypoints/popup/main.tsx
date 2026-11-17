@@ -83,6 +83,7 @@ function Popup() {
   const [target, setTarget] = useState<PickerRow | null>(null);
   const [error, setError] = useState('');
   const [openElsewhere, setOpenElsewhere] = useState<string | null>(null);
+  const [listOpen, setListOpen] = useState(false);
   const moveButton = useRef<HTMLButtonElement>(null);
   const [busy, lock] = useAction();
   const workspaceFieldId = useId();
@@ -172,7 +173,7 @@ function Popup() {
   }
 
   return (
-    <div class="popup">
+    <div class={`popup${listOpen ? ' list-open' : ''}`}>
       <header class="head">Manage tab</header>
 
       {tab && (
@@ -197,9 +198,10 @@ function Popup() {
             label={pickerLabel}
             labelWorkspace={pickerWorkspace}
             placeholder="No workspace"
-            autoFocus
             onPick={setTarget}
+            onOpenChange={setListOpen}
           />
+          {!target && current && <p class="field-hint">Pick another workspace to move this tab.</p>}
           <div class="actions">
             <button class="secondary" onClick={() => window.close()}>
               Cancel
@@ -228,6 +230,7 @@ function Popup() {
             label=""
             placeholder="Save all its tabs to…"
             onPick={(row) => void saveWindow(row)}
+            onOpenChange={setListOpen}
           />
           {openElsewhere && (
             <p>

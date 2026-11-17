@@ -1,3 +1,19 @@
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #f7f6f3;
   --surface: #ffffff;
@@ -8,6 +24,7 @@
   --accent: #0f766e;
   --on-accent: #ffffff;
   --accent-soft: #dcefec;
+  --sidebar: #f1efea;
   --secondary-bg: #edebe6;
   --danger: #b83229;
   --on-danger: #ffffff;
@@ -20,22 +37,35 @@
   --ws-blue: #2563eb;
   --ws-purple: #7c3aed;
   --ws-pink: #c2185b;
+  --font-sans: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 22px;
+  --control-height: 34px;
+  --shadow-menu: 0 4px 12px rgb(0 0 0 / 0.08);
+  --shadow-dialog: 0 12px 32px rgb(0 0 0 / 0.14);
+  --backdrop: rgb(0 0 0 / 0.35);
   color-scheme: light dark;
-  font: 16px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font: 14px/20px var(--font-sans);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #171615;
-    --surface: #201f1d;
+    --surface: #262523;
     --text: #ecebe8;
     --muted: #a3a09a;
     --border: #33312d;
-    --border-strong: #77736b;
+    --border-strong: #85817a;
     --accent: #5eead4;
     --on-accent: #042f2e;
     --accent-soft: #1d3a37;
-    --secondary-bg: #2b2a27;
+    --sidebar: #1c1b19;
+    --secondary-bg: #33322e;
     --danger: #ff7a70;
     --on-danger: #1a0a09;
     --focus: #5eead4;
@@ -47,6 +77,19 @@
     --ws-blue: #6ea8ff;
     --ws-purple: #b794f6;
     --ws-pink: #ff7eb6;
+    --shadow-menu: 0 4px 12px rgb(0 0 0 / 0.4);
+    --shadow-dialog: 0 12px 32px rgb(0 0 0 / 0.4);
+    --backdrop: rgb(0 0 0 / 0.55);
+  }
+}
+
+/* In dark mode the layers above the page get a visible edge. */
+@media (prefers-color-scheme: dark) {
+  .picker-list,
+  .menu-list,
+  .modal,
+  .toast.shown {
+    border-color: var(--border-strong);
   }
 }
 
@@ -65,7 +108,7 @@
 
 body {
   margin: 0;
-  /* Extension pages get a smaller base size from the browser. This keeps the 16px of the root. */
+  /* Extension pages get a smaller base size from the browser. This keeps the 14px of the root. */
   font: inherit;
   background: var(--bg);
   color: var(--text);
@@ -73,43 +116,162 @@ body {
 
 button {
   font: inherit;
+  border-radius: 0;
   color: inherit;
   cursor: pointer;
 }
 
-input,
+h1,
+h2,
+h3 {
+  letter-spacing: -0.01em;
+}
+
+/* Text fields. */
+input:where(:not([type='checkbox'], [type='radio'], [type='file'])),
 select,
 textarea {
   font: inherit;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  padding: 6px 8px;
+  border-radius: 0;
+  padding: 0 10px;
+  height: var(--control-height);
+  transition:
+    border-color 100ms,
+    background-color 100ms;
 }
 
-button:focus-visible,
-input:focus-visible,
+textarea {
+  height: auto;
+  padding: 8px 10px;
+  min-height: 88px;
+}
+
+input:where(:not([type='checkbox'], [type='radio'], [type='file'])):hover:not(:disabled),
+select:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--text) 60%, var(--surface));
+}
+
+/* The focus ring is the only focus change of a field. */
+input:where(:not([type='checkbox'], [type='radio'], [type='file'])):focus-visible,
 select:focus-visible,
-textarea:focus-visible,
-summary:focus-visible {
+textarea:focus-visible {
+  outline-offset: 0;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+input:where(:not([type='checkbox'], [type='radio'], [type='file'])):disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--secondary-bg);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+input[type='number'] {
+  appearance: textfield;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+input[type='search']::-webkit-search-decoration,
+input[type='search']::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* Checkboxes. The mark is a background image, so it renders in every browser. */
+input[type='checkbox'] {
+  appearance: none;
+  display: inline-grid;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  background: var(--surface) center / 14px 14px no-repeat;
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+  cursor: pointer;
+  transition:
+    background-color 100ms,
+    border-color 100ms;
+}
+
+input[type='checkbox']:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--text) 60%, var(--surface));
+}
+
+input[type='checkbox']:checked,
+input[type='checkbox']:indeterminate {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type='checkbox']:checked {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7.5l2.8 2.8L11 4.6' fill='none' stroke='%23ffffff' stroke-width='1.8'/%3E%3C/svg%3E");
+}
+
+input[type='checkbox']:indeterminate {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7h8' fill='none' stroke='%23ffffff' stroke-width='1.8'/%3E%3C/svg%3E");
+}
+
+input[type='checkbox']:disabled {
+  background-color: var(--secondary-bg);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+input[type='checkbox']:disabled:checked,
+input[type='checkbox']:disabled:indeterminate {
+  background-color: var(--muted);
+  border-color: var(--muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  input[type='checkbox']:checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7.5l2.8 2.8L11 4.6' fill='none' stroke='%23042f2e' stroke-width='1.8'/%3E%3C/svg%3E");
+  }
+
+  input[type='checkbox']:indeterminate {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7h8' fill='none' stroke='%23042f2e' stroke-width='1.8'/%3E%3C/svg%3E");
+  }
+}
+
+/* One focus ring for every control. */
+:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
-button:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
+/* Buttons. */
 .primary,
 .secondary,
-.danger-button {
+.danger-button,
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 6px 16px;
-  min-height: 36px;
+  padding: 0 14px;
+  min-height: var(--control-height);
+  font-size: var(--text-sm);
   font-weight: 500;
+  transition:
+    background-color 100ms,
+    border-color 100ms;
 }
 
 .primary {
@@ -117,19 +279,73 @@ button:disabled {
   color: var(--on-accent);
 }
 
+.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 90%, var(--text));
+}
+
+.primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 80%, var(--text));
+}
+
 .secondary {
-  background: var(--secondary-bg);
+  background: var(--surface);
   color: var(--text);
   border-color: var(--border-strong);
 }
 
 .secondary:hover:not(:disabled) {
-  background: var(--accent-soft);
+  background: var(--secondary-bg);
+}
+
+.secondary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--secondary-bg) 88%, var(--text));
 }
 
 .danger-button {
   background: var(--danger);
   color: var(--on-danger);
+}
+
+.danger-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 90%, var(--text));
+}
+
+.danger-button:active:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 80%, var(--text));
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--secondary-bg);
+}
+
+.ghost:active:not(:disabled) {
+  background: color-mix(in srgb, var(--secondary-bg) 88%, var(--text));
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.primary:disabled,
+.secondary:disabled,
+.danger-button:disabled {
+  background: var(--secondary-bg);
+  color: var(--muted);
+  border-color: var(--border);
+}
+
+.ghost:disabled {
+  background: transparent;
+  color: var(--muted);
+}
+
+.plain:disabled {
+  color: var(--muted);
 }
 
 .icon {
@@ -138,14 +354,14 @@ button:disabled {
 
 .field-label {
   display: block;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--text-sm);
+  line-height: 18px;
+  font-weight: 400;
   margin-bottom: 6px;
 }
 
 .field {
   width: 100%;
-  min-height: 40px;
 }
 
 .visually-hidden {
@@ -165,7 +381,7 @@ button:disabled {
   border: none;
   padding: 4px 6px;
   min-height: 28px;
-  border-radius: 4px;
+  font-size: var(--text-sm);
 }
 
 .error {
@@ -176,8 +392,35 @@ button:disabled {
   position: relative;
 }
 
+/* The dot and the arrow are placed against the field, so an open list does not move them. */
+.picker-field {
+  position: relative;
+}
+
 .picker input {
   width: 100%;
+  /* The closed field acts as a dropdown. */
+  cursor: pointer;
+}
+
+/* The open field takes typing. */
+.picker input[aria-expanded='true'] {
+  cursor: text;
+}
+
+.picker input:disabled {
+  cursor: not-allowed;
+}
+
+/* Popover lists: the action menu and the workspace pickers. */
+.picker-list,
+.menu-list {
+  margin: 0;
+  padding: 4px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-menu);
 }
 
 .picker-list {
@@ -185,33 +428,39 @@ button:disabled {
   z-index: 2;
   left: 0;
   right: 0;
-  top: calc(100% + 4px);
-  margin: 0;
-  padding: 4px 0;
+  top: calc(100% + 6px);
   list-style: none;
   max-height: 280px;
   overflow-y: auto;
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.15);
 }
 
 .picker-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
 .picker-row.new {
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 5px;
+  position: relative;
+}
+
+.picker-row.new::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  bottom: -5px;
+  height: 1px;
+  background: var(--border);
 }
 
 .picker-row.highlight {
-  background: var(--accent-soft);
+  background: var(--secondary-bg);
 }
 
 .picker-row.disabled {
@@ -225,7 +474,8 @@ button:disabled {
 
 .picker-open {
   margin-left: auto;
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -234,15 +484,16 @@ button:disabled {
   color: var(--muted);
 }
 
+/* Dialogs. */
 .modal {
   width: min(480px, calc(100vw - 32px));
   max-height: calc(100vh - 64px);
-  padding: 28px;
+  padding: 0;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 0;
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 16px 48px rgb(0 0 0 / 0.3);
+  box-shadow: var(--shadow-dialog);
 }
 
 .modal[open] {
@@ -251,16 +502,14 @@ button:disabled {
 }
 
 .modal.wide {
-  width: min(880px, calc(100vw - 32px));
-  height: min(720px, 90vh);
-  max-height: none;
+  width: min(760px, 92vw);
+  max-height: min(560px, 90vh);
 }
 
 .modal.wide .modal-body {
   display: flex;
   overflow: hidden;
-  margin: 0;
-  padding: 0;
+  padding: 20px;
 }
 
 .modal.wide .settings {
@@ -268,7 +517,7 @@ button:disabled {
 }
 
 .modal::backdrop {
-  background: rgb(0 0 0 / 0.45);
+  background: var(--backdrop);
 }
 
 .modal-head {
@@ -276,27 +525,37 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  padding: 16px 20px;
 }
 
 .modal-head h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: var(--text-lg);
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 23px;
 }
 
-.modal-close {
+.modal-close,
+.toast-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  min-height: 36px;
-  border-radius: 8px;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  min-height: 0;
+  padding: 0;
+  transition: background-color 100ms;
 }
 
-.modal-close:hover:not(:disabled) {
+.modal-close:hover:not(:disabled),
+.toast-close:hover:not(:disabled) {
   background: var(--secondary-bg);
+}
+
+.modal-close:active:not(:disabled),
+.toast-close:active:not(:disabled) {
+  background: color-mix(in srgb, var(--secondary-bg) 88%, var(--text));
 }
 
 .modal-form {
@@ -310,9 +569,7 @@ button:disabled {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  /* Room for the focus rings, which the scroll area would clip. */
-  margin: 0 -6px;
-  padding: 4px 6px;
+  padding: 20px;
 }
 
 .modal-text {
@@ -328,7 +585,8 @@ button:disabled {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 24px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
 }
 
 .ws-dot {
@@ -351,10 +609,30 @@ button:disabled {
   padding-left: 28px;
 }
 
+.picker input {
+  padding-right: 32px;
+}
+
+/* The arrow lets clicks through to the field, which opens the list. */
+.picker-chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  display: flex;
+  color: var(--muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.picker-chevron.open {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+/* Colour swatches. The ring around the selected one sits 2px off the circle and uses the gap. */
 .swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
   margin: 16px 0 0;
   padding: 0;
   border: 0;
@@ -381,15 +659,14 @@ button:disabled {
   padding: 0;
   border: 0;
   border-radius: 50%;
+  background: none;
   opacity: 0;
   cursor: pointer;
 }
 
 .swatch-circle {
-  box-sizing: border-box;
   width: 24px;
   height: 24px;
-  border: 2px solid var(--surface);
   border-radius: 50%;
   pointer-events: none;
 }
@@ -399,18 +676,25 @@ button:disabled {
 }
 
 .swatch input:checked + .swatch-circle {
-  box-shadow: 0 0 0 2px var(--text);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--text);
 }
 
 .swatch input:focus-visible + .swatch-circle {
   outline: 2px solid var(--focus);
-  outline-offset: 4px;
+  outline-offset: 2px;
+}
+
+.swatch input:checked:focus-visible + .swatch-circle {
+  outline-offset: 6px;
 }
 
 .swatch input:disabled + .swatch-circle {
   opacity: 0.5;
 }
 
+/* The toast uses the panel style of the menus. */
 .toast {
   position: fixed;
   z-index: 4;
@@ -420,15 +704,15 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 12px;
+  font-size: var(--text-sm);
 }
 
 .toast.shown {
   padding: 8px 8px 8px 16px;
   background: var(--surface);
   color: var(--text);
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  box-shadow: 0 8px 28px rgb(0 0 0 / 0.25);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-menu);
   animation: toast-in 160ms ease-out;
 }
 
@@ -450,25 +734,19 @@ button:disabled {
 }
 
 .toast-action {
-  min-height: 36px;
-  padding: 6px 12px;
-  border-radius: 8px;
+  min-height: 28px;
+  padding: 0 10px;
   color: var(--accent);
   font-weight: 600;
+  transition: background-color 100ms;
 }
 
-.toast-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 36px;
-  min-height: 36px;
-  border-radius: 8px;
-}
-
-.toast-action:hover:not(:disabled),
-.toast-close:hover {
+.toast-action:hover:not(:disabled) {
   background: var(--secondary-bg);
+}
+
+.toast-action:active:not(:disabled) {
+  background: var(--accent-soft);
 }
 
 @keyframes toast-in {
