@@ -31,6 +31,7 @@ To update, unzip the new release into the same folder and click the reload butto
 - In the Doca tab, click **New workspace** to make a workspace. Pick a name and one of 8 colours. A workspace shows its colour as a dot in the sidebar, in the page heading and in the workspace lists. Use **Rename** in the ⋯ menu to change the name and the colour.
 - Click a workspace to switch to it in the same window. Doca saves the current workspace and closes its tabs first. The first saved tab of the new workspace loads and becomes active at once. The other tabs load when you click them.
 - To open a workspace in a second window, use **Open in new window** in its ⋯ menu. You can also hold Ctrl (Windows and Linux) or Cmd (macOS) and click the workspace.
+- In the Doca tab, rest the pointer on a workspace in the sidebar, or move the keyboard focus to it, to see its saved tabs. The card lists the first 10 tabs. Press `Escape` to close it.
 - Use the search box in the Doca tab to find tabs. Click the clear button, or press `Escape`, to clear the search.
 - To move tabs, select them and use **Move to…**, or drag one tab onto a workspace in the sidebar. Once a tab is selected, **Select all** selects every tab that the search shows. **Move to…** can also make a new workspace for the tabs. A message shows after the move, with an **Undo** button.
 - To delete a workspace, use **Delete** in its ⋯ menu. A message shows after the delete, with an **Undo** button.

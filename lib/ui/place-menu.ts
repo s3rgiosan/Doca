@@ -43,3 +43,18 @@ export function placeMenu(
     left,
   };
 }
+
+export const BESIDE_GAP = 12;
+
+/**
+ * Places a card in viewport coordinates to the right of the anchor, with the tops aligned. The card
+ * moves left when it would overflow the right edge, and up when it would overflow the bottom.
+ */
+export function placeBeside(anchor: Box, card: Size, viewport: Size): { top: number; left: number } {
+  const maxLeft = viewport.width - VIEWPORT_MARGIN - card.width;
+  const maxTop = viewport.height - VIEWPORT_MARGIN - card.height;
+  return {
+    top: Math.max(VIEWPORT_MARGIN, Math.min(anchor.top, maxTop)),
+    left: Math.max(VIEWPORT_MARGIN, Math.min(anchor.left + anchor.width + BESIDE_GAP, maxLeft)),
+  };
+}
