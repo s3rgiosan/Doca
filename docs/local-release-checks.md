@@ -18,3 +18,4 @@ Do these checks in Chrome and in Brave. Load the build from `.output/chrome-mv3`
 | 12 | **New workspace** and **Rename** set a name and one of 8 colours. The dot shows in the sidebar, the page heading and the pickers. | | | |
 | 13 | After a delete or a move, **Undo** brings back the workspace or the tabs. Deleting the workspace of the current window closes the Doca tab with no undo. | | | |
 | 14 | Settings with unsaved edits ask **Save changes?** in the Doca tab. The settings page asks before it closes. | | | |
+| 15 | Resting the pointer on a sidebar workspace, other than the current one, shows a card with its saved tabs. The card stays open while the pointer moves onto it, and `Escape`, a click or a scroll closes it. Keyboard focus on the workspace opens it too. | | | |

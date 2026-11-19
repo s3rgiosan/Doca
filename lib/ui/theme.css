@@ -87,6 +87,7 @@
 @media (prefers-color-scheme: dark) {
   .picker-list,
   .menu-list,
+  .tab-preview,
   .modal,
   .toast.shown {
     border-color: var(--border-strong);

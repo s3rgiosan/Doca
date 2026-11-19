@@ -21,6 +21,8 @@ import { Settings } from '@/lib/ui/Settings';
 import { shortUrl, tabLabel as tabLabelParts } from '@/lib/ui/short-url';
 import { workspaceIconUrl } from '@/lib/ui/tab-icon';
 import { SuspendedIcon } from '@/lib/ui/SuspendedIcon';
+import { TabPreview } from '@/lib/ui/TabPreview';
+import { tabCount } from '@/lib/ui/tab-preview';
 import { Toast, type ToastMessage } from '@/lib/ui/Toast';
 import { WorkspaceDot } from '@/lib/ui/WorkspaceDot';
 import { WorkspacePicker } from '@/lib/ui/WorkspacePicker';
@@ -30,6 +32,11 @@ const managerBase = location.href.split(/[?#]/)[0]!;
 const DRAG_TYPE = 'application/x-doca-tab';
 const DEFAULT_TAB_ICON = '/icon/32.png';
 const mac = isMacPlatform();
+const PREVIEW_ID = 'tab-preview';
+// The pointer rests on a row this long before its tab preview opens.
+const PREVIEW_SHOW_MS = 500;
+// The preview stays open this long after the pointer leaves, so the pointer can move onto it.
+const PREVIEW_HIDE_MS = 200;
 
 interface State {
   windowId: number | null;
@@ -103,8 +110,6 @@ function useLiveState(): { state: State | null; loadError: string } {
   return { state, loadError };
 }
 
-const tabCount = (count: number) => `${count} ${count === 1 ? 'tab' : 'tabs'}`;
-
 export function App() {
   const { state, loadError } = useLiveState();
   const [query, setQuery] = useState('');
@@ -131,6 +136,62 @@ export function App() {
   const pendingFocus = useRef<string | null>(null);
   // The selector of the button that opened the new workspace dialog.
   const createOpener = useRef('.side-action');
+  // The workspace whose tab preview is open, and its sidebar row.
+  const [preview, setPreview] = useState<{ wsId: string; anchor: HTMLElement } | null>(null);
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  /** Opens the preview after a delay. It opens at once when another preview is already open. */
+  const showPreviewSoon = (id: string, anchor: HTMLElement) => {
+    clearTimeout(previewTimer.current);
+    if (preview) {
+      setPreview({ wsId: id, anchor });
+      return;
+    }
+    previewTimer.current = setTimeout(() => setPreview({ wsId: id, anchor }), PREVIEW_SHOW_MS);
+  };
+
+  const hidePreviewSoon = () => {
+    clearTimeout(previewTimer.current);
+    previewTimer.current = setTimeout(() => setPreview(null), PREVIEW_HIDE_MS);
+  };
+
+  const hidePreview = () => {
+    clearTimeout(previewTimer.current);
+    setPreview(null);
+  };
+
+  useEffect(() => () => clearTimeout(previewTimer.current), []);
+
+  // The card is fixed to the viewport, so a scroll or resize would leave it away from its row.
+  useEffect(() => {
+    if (!preview) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        hidePreview();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('scroll', hidePreview, true);
+    window.addEventListener('resize', hidePreview);
+    document.addEventListener('mousedown', hidePreview);
+    document.addEventListener('dragstart', hidePreview);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('scroll', hidePreview, true);
+      window.removeEventListener('resize', hidePreview);
+      document.removeEventListener('mousedown', hidePreview);
+      document.removeEventListener('dragstart', hidePreview);
+    };
+  }, [preview !== null]);
+
+  // A row that leaves the list, for example when its workspace moves to another group, takes its preview with it.
+  useEffect(() => {
+    if (preview && !preview.anchor.isConnected) {
+      hidePreview();
+    }
+  });
 
   useEffect(() => {
     const selector = pendingFocus.current;
@@ -442,6 +503,14 @@ export function App() {
           setDropTarget(ws.id);
         }
       }}
+      onMouseEnter={(event) => {
+        // The current workspace lists its tabs in the main area, so its row has no preview.
+        if (ws.id !== wsId) {
+          showPreviewSoon(ws.id, event.currentTarget);
+        }
+      }}
+      onMouseLeave={hidePreviewSoon}
+      onMouseDown={hidePreview}
       onDragLeave={() => setDropTarget(null)}
       onDrop={(event) => {
         event.preventDefault();
@@ -455,10 +524,21 @@ export function App() {
       <WorkspaceDot ws={ws} />
       <button
         class="ws-name plain"
-        title={ws.name}
+        title={ws.id === wsId ? ws.name : undefined}
         aria-current={ws.id === wsId ? 'true' : undefined}
+        aria-describedby={previewShown && preview?.wsId === ws.id ? PREVIEW_ID : undefined}
         disabled={busy}
+        onFocus={(event) => {
+          // Keyboard focus opens the preview at once. A mouse click does not.
+          const row = event.currentTarget.closest<HTMLElement>('.ws-row');
+          if (ws.id !== wsId && row && event.currentTarget.matches(':focus-visible')) {
+            clearTimeout(previewTimer.current);
+            setPreview({ wsId: ws.id, anchor: row });
+          }
+        }}
+        onBlur={hidePreview}
         onClick={(event) => {
+          hidePreview();
           // A click with the modifier key opens the workspace in a new window.
           const windowId = newWindowClick(event, mac) ? undefined : (state.windowId ?? undefined);
           void act({ type: 'switch', wsId: ws.id, windowId });
@@ -491,6 +571,10 @@ export function App() {
   );
 
   const view = mainView(state.workspaces, wsId);
+  const previewWs = preview ? state.workspaces.find((ws) => ws.id === preview.wsId && !ws.deleted) : undefined;
+  // A menu or a dialog sits above the sidebar, so the tab preview stays closed while one is open.
+  const layerOpen = openMenu !== null || settingsOpen || renaming !== null || creating || deleting !== null;
+  const previewShown = preview !== null && previewWs !== undefined && !layerOpen;
 
   /** The main area: the current workspace, or a prompt to make or pick one. */
   const renderMain = () => {
@@ -756,6 +840,16 @@ export function App() {
             ? `Delete "${deleting.name}"? Its window stays open with its tabs.`
             : `Delete "${deleting.name}"? Its saved tabs are removed.`}
         </ConfirmDialog>
+      )}
+
+      {previewShown && (
+        <TabPreview
+          id={PREVIEW_ID}
+          ws={previewWs}
+          anchor={preview.anchor}
+          onMouseEnter={() => clearTimeout(previewTimer.current)}
+          onMouseLeave={hidePreviewSoon}
+        />
       )}
 
       <Toast toast={toast} busy={busy} onClose={closeToast} />
