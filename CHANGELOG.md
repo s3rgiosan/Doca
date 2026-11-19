@@ -5,6 +5,12 @@ All notable changes to Doca will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-11-19
+
+### Added
+
+- In the Doca tab, a card beside a sidebar workspace lists its saved tabs when you rest the pointer on the workspace or move the keyboard focus to it.
+
 ## [1.0.3] - 2026-11-17
 
 ### Changed
@@ -85,7 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workspaces return to their windows after a browser restart, and a workspace that opens loads its first tab and keeps the other tabs suspended until you click them.
 - The interface follows the light or dark colour scheme of the system.
 
-[Unreleased]: https://github.com/s3rgiosan/Doca/compare/1.0.3...HEAD
+[Unreleased]: https://github.com/s3rgiosan/Doca/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/s3rgiosan/Doca/compare/1.0.3...1.1.0
 [1.0.3]: https://github.com/s3rgiosan/Doca/compare/1.0.2...1.0.3
 [1.0.2]: https://github.com/s3rgiosan/Doca/compare/1.0.1...1.0.2
 [1.0.1]: https://github.com/s3rgiosan/Doca/compare/1.0.0...1.0.1
